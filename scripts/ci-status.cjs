@@ -1,7 +1,7 @@
 'use strict';
 // Read-only, public GitHub Actions status. Never print Git proxy credentials.
 const cp=require('node:child_process');
-const sha=process.argv[2] || cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();
+const sha=cp.execFileSync('git',['rev-parse','--verify','--end-of-options',(process.argv[2]||'HEAD')+'^{commit}'],{encoding:'utf8'}).trim();
 const proxy=cp.spawnSync('git',['config','--get-urlmatch','http.proxy','https://api.github.com/'],{encoding:'utf8'}).stdout?.trim();
 const args=['-q','--silent','--show-error','--max-time','25',...(proxy?['--proxy',proxy]:[]),'--url',`https://api.github.com/repos/OpenMili/OpenMili-IP-Toolkit/actions/runs?head_sha=${encodeURIComponent(sha)}&per_page=5`];
 const r=cp.spawnSync(process.platform==='win32'?'curl.exe':'curl',args,{encoding:'utf8',windowsHide:true});

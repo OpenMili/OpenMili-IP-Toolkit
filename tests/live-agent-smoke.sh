@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT=$(pwd)
 TEMP_AGENT=$(mktemp -d)
 cleanup() {
+  if [ "$?" -ne 0 ] && [ -f "$TEMP_AGENT/sshd.log" ]; then sudo cat "$TEMP_AGENT/sshd.log"; fi
   if [ -f "$TEMP_AGENT/sshd.pid" ]; then sudo kill "$(cat "$TEMP_AGENT/sshd.pid")" || true; fi
   rm -rf -- "$TEMP_AGENT"
 }
@@ -21,7 +22,7 @@ AuthorizedKeysFile $TEMP_AGENT/authorized_keys
 StrictModes no
 PasswordAuthentication no
 KbdInteractiveAuthentication no
-UsePAM no
+UsePAM yes
 AllowUsers $(id -un)
 EOF
 printf '#!/bin/sh\nexec "%s" "%s/bin/openmili.js" "$@"\n' "$(command -v node)" "$ROOT" > "$TEMP_AGENT/agent"

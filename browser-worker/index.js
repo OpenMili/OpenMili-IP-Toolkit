@@ -16,7 +16,7 @@ async function loadPlaywright(options={},log=()=>{}) {
   await fs.copyFile(path.join(__dirname,'package.json'),path.join(root,'package.json'));
   await fs.copyFile(path.join(__dirname,'package-lock.json'),path.join(root,'package-lock.json'));
   const command=require('../lib/npm-runtime').npmCommand(['ci','--prefix',root,'--omit=dev','--ignore-scripts','--no-audit','--no-fund']);
-  const r=await require('../lib/transport').runProcess(command.command,command.args,{timeout:180000,signal:options.signal,maxOutput:128*1024});
+  const r=await require('../lib/transport').runProcess(command.command,command.args,{timeout:180000,signal:options.signal,maxOutput:128*1024,cwd:root,env:require('../lib/npm-runtime').npmEnvironment()});
   if(r.code!==0||r.error)throw new Error('浏览器 worker 安装失败；保留核心 HTTP 能力');
   return load();
 }
