@@ -72,7 +72,7 @@ test('公网 IP 必须拒绝私网、文档网段和非法地址', () => {
 
 test('回程仅解析跳点；头部目标不能证明到达；前缀匹配不越界', () => {
   const failed = parseTrace('traceroute to 8.8.8.8 (8.8.8.8), 20 hops max\n 1 * * *\n 2 192.168.1.1 1 ms\n', '8.8.8.8');
-  assert.equal(failed.reached,false); assert.equal(failed.hops.length,1);
+  assert.equal(failed.reached,false); assert.equal(failed.hops.length,2);assert.equal(failed.hops[0].anonymous,true);
   const ok = parseTrace('Tracing route to 8.8.8.8\n 1 <1 ms <1 ms <1 ms 192.168.1.1\n 2 10 ms 11 ms 10 ms 8.8.8.8\n', '8.8.8.8');
   assert.equal(ok.reached,true);
   assert.equal(prefixHint('59.43.1.1'),4809); assert.equal(prefixHint('59.430.1.1'),null);
@@ -112,6 +112,7 @@ test('评分不将未测试变成满分，也不把浏览器出口混用', () =>
   assert.equal(scoreReport({sites}).coverage,0);
   score = scoreReport({sites:[],database:{reputation:{tested:true,risk:0,coverage:0.25}}});
   assert.equal(score.earned,5); assert.equal(score.coverage,5);
+  const stars=scoreReport({routes:{results:[{hops:[{ip:null,anonymous:true}],reached:false}]}});assert.equal(stars.components.find(c=>c.name==='routes').measured,0);
 });
 
 test('报告对站点和数据库文本转义，避免远程内容注入 HTML', () => {

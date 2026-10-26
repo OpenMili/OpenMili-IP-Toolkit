@@ -19,6 +19,13 @@ jobs:
       - run: npm test
         env:
           REQUIRE_BROWSER_TESTS: '1'
+      - name: Real Linux IPv4 and IPv6 traceroute protocols
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y traceroute
+          sudo "$(command -v node)" tests/live-route-smoke.cjs
       - run: npm run smoke
       - run: npm pack --dry-run
       - name: Install GitHub archive outside checkout

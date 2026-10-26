@@ -1,6 +1,6 @@
 {
   "name": "openmili-ip-toolkit",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "跨平台出口 IP 质量、浏览器风控和三网回程检测",
   "private": true,
   "bin": {

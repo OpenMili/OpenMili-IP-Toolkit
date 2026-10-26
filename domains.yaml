@@ -1,88 +1,295 @@
-# 网站检测目标；每项包含 name 和 url。
+version: websites-v1
+updated_at: 2026-10-27
+expires_at: 2027-04-27
 domains:
   - name: ChatGPT
     url: https://chatgpt.com/
     weight: 3
+    category: AI
+    expected_text:
+      - ChatGPT
+    allowed_hosts: []
+    timeout: 12
   - name: Claude
     url: https://claude.ai/
     weight: 3
+    category: AI
+    expected_text:
+      - Claude
+    allowed_hosts:
+      - claude.com
+    timeout: 12
   - name: Google Scholar
     url: https://scholar.google.com/
     weight: 3
+    category: search
+    expected_text:
+      - Google Scholar
+    allowed_hosts: []
+    timeout: 12
   - name: Netflix
     url: https://www.netflix.com/
+    category: video
+    expected_text:
+      - Netflix
+    allowed_hosts: []
+    timeout: 12
   - name: Disney+
     url: https://www.disneyplus.com/
+    category: video
+    expected_text:
+      - Disney
+    allowed_hosts: []
+    timeout: 12
   - name: Instagram
     url: https://www.instagram.com/
+    category: social
+    expected_text:
+      - Instagram
+    allowed_hosts: []
+    timeout: 12
   - name: X
     url: https://x.com/
+    category: social
+    expected_text:
+      - Happening now
+      - Join X
+      - Sign in to X
+      - Twitter
+    allowed_hosts: []
+    timeout: 12
   - name: Reddit
     url: https://www.reddit.com/
     weight: 3
+    category: social
+    expected_text:
+      - Reddit
+    allowed_hosts: []
+    timeout: 12
   - name: Discord
     url: https://discord.com/
+    category: social
+    expected_text:
+      - Discord
+    allowed_hosts: []
+    timeout: 12
   - name: Perplexity
     url: https://www.perplexity.ai/
     weight: 3
+    category: AI
+    expected_text:
+      - Perplexity
+    allowed_hosts: []
+    timeout: 12
   - name: ScienceDirect
     url: https://www.sciencedirect.com/
     weight: 3
+    category: academic
+    expected_text:
+      - ScienceDirect
+    allowed_hosts: []
+    timeout: 12
   - name: ResearchGate
     url: https://www.researchgate.net/
+    category: academic
+    expected_text:
+      - ResearchGate
+    allowed_hosts: []
+    timeout: 12
   - name: JSTOR
     url: https://www.jstor.org/
+    category: academic
+    expected_text:
+      - JSTOR
+    allowed_hosts: []
+    timeout: 12
   - name: arXiv
     url: https://arxiv.org/
+    category: academic
+    expected_text:
+      - arXiv
+    allowed_hosts: []
+    timeout: 12
   - name: Google Search
     url: https://www.google.com/search?q=OpenMili
     weight: 2
+    category: search
+    expected_text:
+      - Google
+    allowed_hosts: []
+    timeout: 12
   - name: Bing Search
     url: https://www.bing.com/search?q=OpenMili
+    category: search
+    expected_text:
+      - Bing
+    allowed_hosts: []
+    timeout: 12
   - name: Gemini
     url: https://gemini.google.com/
     weight: 2
+    category: AI
+    expected_text:
+      - Gemini
+    allowed_hosts: []
+    timeout: 12
   - name: Grok
     url: https://grok.com/
     weight: 3
+    category: AI
+    expected_text:
+      - Grok
+    allowed_hosts: []
+    timeout: 12
   - name: Hugging Face
     url: https://huggingface.co/
+    category: AI
+    expected_text:
+      - Hugging Face
+    allowed_hosts: []
+    timeout: 12
   - name: OpenRouter
     url: https://openrouter.ai/
+    category: AI
+    expected_text:
+      - OpenRouter
+    allowed_hosts: []
+    timeout: 12
   - name: Poe
     url: https://poe.com/
     weight: 2
+    category: AI
+    expected_text:
+      - Poe
+    allowed_hosts: []
+    timeout: 12
   - name: GitHub
     url: https://github.com/
+    category: developer
+    expected_text:
+      - GitHub
+    allowed_hosts: []
+    timeout: 12
   - name: Stack Overflow
     url: https://stackoverflow.com/questions
     weight: 2
+    category: developer
+    expected_text:
+      - Stack Overflow
+    allowed_hosts: []
+    timeout: 12
   - name: Medium
     url: https://medium.com/
     weight: 2
+    category: social
+    expected_text:
+      - Medium
+    allowed_hosts: []
+    timeout: 12
   - name: Quora
     url: https://www.quora.com/
     weight: 3
+    category: social
+    expected_text:
+      - Quora
+    allowed_hosts: []
+    timeout: 12
   - name: Amazon
     url: https://www.amazon.com/
     weight: 2
+    category: general
+    expected_text:
+      - Amazon
+    allowed_hosts: []
+    timeout: 12
   - name: eBay
     url: https://www.ebay.com/
+    category: general
+    expected_text:
+      - eBay
+    allowed_hosts: []
+    timeout: 12
   - name: PayPal
     url: https://www.paypal.com/
     weight: 2
+    category: finance
+    expected_text:
+      - PayPal
+    allowed_hosts: []
+    timeout: 12
   - name: Stripe
     url: https://stripe.com/
+    category: finance
+    expected_text:
+      - Stripe
+    allowed_hosts: []
+    timeout: 12
   - name: TikTok
     url: https://www.tiktok.com/
     weight: 2
+    category: social
+    expected_text:
+      - TikTok
+    allowed_hosts: []
+    timeout: 12
   - name: Twitch
     url: https://www.twitch.tv/
+    category: video
+    expected_text:
+      - Twitch
+    allowed_hosts: []
+    timeout: 12
   - name: Spotify
     url: https://open.spotify.com/
+    category: video
+    expected_text:
+      - Spotify
+    allowed_hosts: []
+    timeout: 12
   - name: Notion
     url: https://www.notion.so/
+    category: general
+    expected_text:
+      - Notion
+    allowed_hosts:
+      - notion.com
+    timeout: 12
   - name: Vercel
     url: https://vercel.com/
+    category: developer
+    expected_text:
+      - Vercel
+    allowed_hosts: []
+    timeout: 12
   - name: Cloudflare
     url: https://www.cloudflare.com/
+    category: developer
+    expected_text:
+      - Cloudflare
+    allowed_hosts: []
+    timeout: 12
+  - name: Gmail
+    url: https://mail.google.com/
+    category: mail
+    expected_text:
+      - Google
+      - Gmail
+    allowed_hosts:
+      - accounts.google.com
+    timeout: 12
+  - name: Outlook
+    url: https://outlook.live.com/mail/
+    category: mail
+    expected_text:
+      - Outlook
+      - Microsoft
+    allowed_hosts:
+      - login.live.com
+    timeout: 12
+  - name: Proton Mail
+    url: https://mail.proton.me/
+    category: mail
+    expected_text:
+      - Proton
+    allowed_hosts: []
+    timeout: 12

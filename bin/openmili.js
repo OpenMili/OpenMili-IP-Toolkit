@@ -8,7 +8,8 @@ const { createInterface } = require('node:readline/promises');
 const { parseTargets, normalizeProxy, redactProxy, classify, scoreReport, isPublicIP, canonicalIP } = require('../lib/core');
 const { request, runProcess } = require('../lib/transport');
 const { discoverIP, discoverFamily, lookupDatabase, lookupHistory } = require('../lib/identity');
-const { traceRoutes, parseRouteTargets } = require('../lib/routes');
+const { parseRouteTargets } = require('../lib/routes');
+const { measureRoutes:traceRoutes } = require('../lib/route-engine');
 const { probeBrowserSites } = require('../lib/browser');
 const { saveReport } = require('../lib/report');
 const { readOptions, HELP:CLI_HELP } = require('../lib/cli-options');
@@ -121,6 +122,8 @@ async function main(args = process.argv.slice(2), runtime = {}) {
   options.signal=runtime.signal;
   applyEnvironmentProxy(options);
   if (options.lookupIP) options.family=net.isIP(options.lookupIP);
+  if(!options.familyExplicit&&options.sourceIP)options.family=net.isIP(options.sourceIP);
+  if(options.command==='port'&&net.isIP(options.host))options.family=net.isIP(options.host);
   options.sourceIP=bindSource(options);
   const privacy={secrets:environmentSecrets(),redact:options.redact,hostnames:[os.hostname()]};
   const log = message => { if(!options.json) console.log(sanitizeText(message,privacy)); };
@@ -148,6 +151,7 @@ async function main(args = process.argv.slice(2), runtime = {}) {
     log(`直连出口: IPv4 ${direct.v4.ip || '未获取'} | IPv6 ${direct.v6.ip || '未获取'}`);
   }
   await chooseMode(options);
+  if(options.sourceIP&&options.proxy)throw new Error('来源绑定不能和代理同时使用；已停止，未忽略绑定');
   log(`模式: ${options.mode === 'proxy' ? `代理 ${redactProxy(options.proxy)}` : '直连'}`);
   const transport = { ...options, family:options.command === 'lookup' ? undefined : options.family };
   exit = direct;
@@ -167,14 +171,18 @@ async function main(args = process.argv.slice(2), runtime = {}) {
     report.dns=await inspectDNS({...transport,publicIP:checkedIP});report.finishedAt=new Date().toISOString();
     const safe=await saveReport(report,output,options);if(options.json)console.log(JSON.stringify(safe));else{log(`DNS: ${report.dns.reason}`);log(`报告: ${path.join(output,'report.html')}`);}return safe;
   }
+  if(options.command === 'route'){
+    report.routes=await traceRoutes(options.routeTargets?options.targets:undefined,transport,log);report.finishedAt=new Date().toISOString();
+    const safe=await saveReport(report,output,options);if(options.json)console.log(JSON.stringify(safe));else{log(report.routes.note||report.routes.reason);log(`报告: ${path.join(output,'report.html')}`);}if(options.signal?.aborted)process.exitCode=EXIT.INTERRUPTED;return safe;
+  }
   log('查询公开 IP 库与 ASN 归属…');
   report.database = options.lookup && options.command !== 'ip' && !options.signal?.aborted ? await lookupDatabase(checkedIP, { ...transport, abuseKey: process.env.ABUSEIPDB_API_KEY,ipapiKey:process.env.IPAPI_API_KEY,ipinfoKey:process.env.IPINFO_TOKEN }) : { status: 'untested', reason:'用户跳过或本次只检查 IP', records: [] };
   log(`IP 数据库: ${checkedIP || '未获取'} | ${report.database.attribute?.label || '未测试'}`);
   for (const r of report.database.records || []) log(`  ${r.source||r.provider}: ${r.status === 'ok' ? `AS${r.asns?.join(',') || r.asn || '?'} ${r.owner||r.name||''} ${r.country || r.registered_country || ''} ${r.city || ''}` : `未测试（${r.reason}）`}`);
   if(!options.onlyLookup && !options.noDNS && !options.skipIP)report.dns=await inspectDNS({...transport,publicIP:checkedIP});
   if (!options.onlyLookup) {
-    log('三网回程：北京、上海、广州、成都参考节点…');
-    report.routes = options.routes ? await traceRoutes(options.targets, transport, log) : { status: 'untested', reason: '用户跳过', results: [] };
+    log('三网路径：目录节点逐跳探测，方向单独核验…');
+    report.routes = options.routes ? await traceRoutes(options.routeTargets?options.targets:undefined, transport, log) : { status: 'untested', reason: '用户跳过', results: [] };
     if (report.routes.reason) log(`三网回程: 未测试（${report.routes.reason}）`);
   } else report.routes = { status: 'untested', reason: '仅查询数据库', results: [] };
   log('查询网段注册事件与近 90 天 BGP 历史…');
@@ -191,14 +199,15 @@ async function main(args = process.argv.slice(2), runtime = {}) {
       } else source = response.body;
     } else source = await fs.readFile(options.urls, 'utf8');
     report.sites = source===undefined?[]:parseTargets(source);
+    report.site_rules={version:report.sites[0]?.rule_version||null,updated_at:report.sites[0]?.updated_at||null,expires_at:report.sites[0]?.expires_at||null,sha256:source?require('node:crypto').createHash('sha256').update(source).digest('hex'):null};
     if (options.limit) report.sites = report.sites.slice(0, options.limit);
     log(`网站 HTTP 检测 | IPv${options.family} | ${report.sites.length} 个目标`);
     for (let i = 0; i < report.sites.length; i++) {
       if (options.signal?.aborted || options.offline) break;
       const site = report.sites[i];
       for (const [key, userAgent] of [['httpPlain','curl/8 OpenMili-IP-Toolkit/2.0'], ['http',undefined]]) {
-        const response = await request(site.url, { ...transport, userAgent });
-        const judgment = classify({...response,requestUrl:site.url});
+        const response = await request(site.url, { ...transport, timeout:site.timeout?site.timeout*1000:transport.timeout,userAgent });
+        const judgment = classify({...response,requestUrl:site.url,allowedHosts:site.allowed_hosts,rules:site});
         site[key] = { ...response, ...judgment }; delete site[key].body;
       }
       log(`[${i+1}/${report.sites.length}] ${site.name}: ${site.http.label} ${site.http.status} ${site.http.duration}ms | 原始 ${site.httpPlain.label}`);

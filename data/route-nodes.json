@@ -1,0 +1,25 @@
+{
+  "version": "route-nodes-v1",
+  "retrieved_at": "2026-10-27",
+  "source": "https://github.com/nxtrace/NTrace-core/blob/main/fast_trace/basic.go",
+  "source_blob_sha": "a78c7d50cb4c5dbfefbb69db5803c6abb9405e34",
+  "license": "GPL-3.0-only (upstream endpoint directory; separate from toolkit implementation)",
+  "nodes": [
+    {"name":"北京电信","region":"beijing","isp":"telecom","expected_asns":[4134,4847,58540],"ipv4":"ipv4.pek-4134.endpoint.nxtrace.org","ipv6":"ipv6.pek-4134.endpoint.nxtrace.org","geography_warning":"2026-10-27 IPv6 终点起源 AS58540 登记为济南 IDC；目录城市待核验，不保证在北京"},
+    {"name":"北京联通","region":"beijing","isp":"unicom","expected_asns":[4837,4808],"ipv4":"ipv4.pek-4837.endpoint.nxtrace.org","ipv6":"ipv6.pek-4837.endpoint.nxtrace.org"},
+    {"name":"北京移动","region":"beijing","isp":"mobile","expected_asns":[9808,56048],"ipv4":"ipv4.pek-9808.endpoint.nxtrace.org","ipv6":"ipv6.pek-9808.endpoint.nxtrace.org"},
+    {"name":"上海电信","region":"shanghai","isp":"telecom","expected_asns":[4134,4812],"ipv4":"ipv4.sha-4134.endpoint.nxtrace.org","ipv6":"ipv6.sha-4134.endpoint.nxtrace.org"},
+    {"name":"上海联通","region":"shanghai","isp":"unicom","expected_asns":[4837,17621],"ipv4":"ipv4.sha-4837.endpoint.nxtrace.org","ipv6":"ipv6.sha-4837.endpoint.nxtrace.org"},
+    {"name":"上海移动","region":"shanghai","isp":"mobile","expected_asns":[9808,24400],"ipv4":"ipv4.sha-9808.endpoint.nxtrace.org","ipv6":"ipv6.sha-9808.endpoint.nxtrace.org"},
+    {"name":"广州电信","region":"guangzhou","isp":"telecom","expected_asns":[4134],"ipv4":"ipv4.can-4134.endpoint.nxtrace.org","ipv6":"ipv6.can-4134.endpoint.nxtrace.org"},
+    {"name":"广州联通","region":"guangzhou","isp":"unicom","expected_asns":[4837,17816,136958],"ipv4":"ipv4.can-4837.endpoint.nxtrace.org","ipv6":"ipv6.can-4837.endpoint.nxtrace.org"},
+    {"name":"广州移动","region":"guangzhou","isp":"mobile","expected_asns":[9808],"ipv4":"ipv4.can-9808.endpoint.nxtrace.org","ipv6":"ipv6.can-9808.endpoint.nxtrace.org"}
+  ],
+  "regional_asn_evidence": {
+    "checked_at": "2026-10-27",
+    "source_template": "https://stat.ripe.net/data/as-overview/data.json?resource=AS{asn}",
+    "holders": {"4847":"CNIX-AP - China Networks Inter-Exchange (APNIC 106.37.71.253 registration CHINANET-BJ)","58540":"CHINATELECOM-SHANDONG-JINAN-IDC - Jinan,250000","4808":"CHINA169-BJ - China Unicom Beijing Province Network","56048":"CMNET-BEIJING-AP - China Mobile Communicaitons Corporation","4812":"CHINANET-SH-AP - China Telecom (Group)","17621":"CNCGROUP-SH - China Unicom Shanghai network","24400":"CMNET-V4shanghai-AS-AP - Shanghai Mobile Communications Co.,Ltd.","17816":"CHINA169-GZ - China Unicom IP network China169 Guangdong province","136958":"UNICOM-GuangZhou-IDC - China Unicom Guangdong IP network"},
+    "note":"地区 ASN 核验只用于运营商端点归属；组织名/登记地址不能证实 IP 使用类型、实际终点城市或商用线路级别"
+  },
+  "health_policy": {"ttl_seconds":3600,"initial_status":"unknown","last_successful_at":null,"note":"来源目录不是本工具已验证健康的声明；运行时 DNS/BGP/路径分别核验，成功时间只由真实观测写入"}
+}

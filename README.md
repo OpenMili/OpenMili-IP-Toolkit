@@ -55,20 +55,20 @@ Windows 也可双击 `run.cmd` 或使用 `run.ps1`；Linux 可用 `bash run.sh`�
 
 | 模块 | 实际检查与边界 |
 |---|---|
-| 出口 IP | 多个 HTTPS 服务交叉观测 IPv4/IPv6，忽略系统隐式代理；显式代理会覆盖 `NO_PROXY`。HTTP 开始/结束与浏览器开始/结束分别核验，出口变化或无法核验时不混入该 IP 评分。 |
+| 出口 IP | 多个 HTTPS 服务交叉观测 IPv4/IPv6，读取并标明 HTTP_PROXY/HTTPS_PROXY/NO_PROXY；可用 --ignore-env-proxy 禁用，显式代理覆盖 NO_PROXY。HTTP 开始/结束与浏览器开始/结束分别核验，出口变化或无法核验时不混入该 IP 评分。 |
 | IP 属性 | RIPE RIS、Team Cymru 交叉核对 ASN/前缀，IANA 引导官方 RIR RDAP。仅有 ASN 时类型保持 UNKNOWN；按授权增强的 IP/前缀类型证据进行融合、依赖去重和冲突展示。 |
 | DNS | 系统配置/getaddrinfo、UDP/TCP/DoH/DoT、A/AAAA/CNAME/MX/TXT/PTR 及正反向回查；保留 RCODE/耗时/差异，不把 CDN 差异当污染。 |
 | 公开库风险 | 仅使用服务实际返回的 Tor、代理、VPN、滥用字段；免费服务省略字段或限流时保留未知。机房属性本身不扣分。 |
-| 三网回程 | 参考 backtrace 的北京、上海、广州、成都三网共 12 个目标；系统 tracert/traceroute 获取跳点，RIPE 验证沿途 ASN，前缀提示另标。不会仅靠 59.43 就认定 CN2 GIA。 |
+| 三网回程 | 有来源的北京、上海、广州三网九组双栈域名；DNS/BGP 归属核验、逐跳 ASN/RTT/匿名跳与健康历史，ICMP/TCP/UDP 按平台能力执行。城市仍需核实，不以 ASN 断言 CN2 GIA。 |
 | IP 历史 | 官方 RIR RDAP 网段注册/修改事件、当前精确宣告前缀近 90 天 BGP 起源。不会把上级网段历史、BGP 变化或注册年龄当作滥用记录。 |
 | 举报历史 | 设置环境变量 `ABUSEIPDB_API_KEY` 后查询近 90 天举报。未配置、无返回或无举报不证明没有滥用历史，密钥不写入报告。 |
-| 网站实测 | 默认 35 个目标，原始 HTTP、桌面浏览器请求头和真实 Chromium 三种方式。包含 ChatGPT、Claude、Scholar、Reddit、Grok、Quora、ScienceDirect 等验证目标，各站权重可调。 |
+| 网站实测 | 默认 38 个版本化分类目标，原始 HTTP、桌面浏览器请求头和真实 Chromium 三种方式。包含 ChatGPT、Claude、Scholar、Reddit、Grok、Quora、ScienceDirect 等验证目标，各站权重可调。 |
 | 风控证据 | 区分验证码、CF 盾、地区限制、登录、429 限流、空白、JS 要求、网络错误；记录状态码、耗时、标题、可见文字片段、最终地址，异常浏览器页面截图。不会绕过验证码。 |
 | 本地历史对比 | 与同一报告根目录的上一次相同出口报告比较网站结果；`latest.json` 保留最近一次完整报告。 |
 
 回程是在**运行脚本的机器**上执行，不穿过 HTTP/SOCKS 代理。代理模式会跳过回程；需要测 VPS 回中国方向时，请在该 VPS 本机运行。Linux 需要系统 `traceroute`。不响应 ICMP 不等于线路差。
 
-当前三网目标为 IPv4；选择 IPv6 检测时，该模块标为未测试，不混入 IPv6 评分。
+三网 IPv4/IPv6 分别测量；Windows 原生仅支持 ICMP，Linux 需 traceroute 及对应权限。见 [路由方法](docs/ROUTING_METHOD.md) 和 [站点规则](docs/WEBSITE_RULES.md)。
 
 网站可达只证明本次页面访问。浏览器指纹、地区、账户、时间及代理按目标分流都会影响结果，不能保证“绝对好 IP”，也不代表登录、播放、支付已解锁。默认 HTTP 固定 IPv4，只有 IPv6 出口时改用 IPv6；直连浏览器若实际用了不同协议，其结果保留但不混入该 IP 评分。
 
