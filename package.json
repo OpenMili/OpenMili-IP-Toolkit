@@ -13,7 +13,8 @@
     "start": "node bin/openmili.js",
     "test": "node --test",
     "smoke": "node tests/smoke.js",
-    "build:bundle": "node scripts/build-bundle.cjs"
+    "build:bundle": "node scripts/build-bundle.cjs",
+    "simple-check": "node simple-ip-check.js"
   },
   "files": [
     "bin",
@@ -38,7 +39,10 @@
     "CHANGELOG.md",
     "SECURITY.md",
     "CONTRIBUTING.md",
-    "LICENSE"
+    "LICENSE",
+    "simple-ip-check.js",
+    "simple-ip-check.ps1",
+    "simple-ip-check.sh"
   ],
   "dependencies": {
     "ajv": "8.20.0",

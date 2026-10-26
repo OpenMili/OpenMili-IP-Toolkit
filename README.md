@@ -2,7 +2,25 @@
 
 检测**运行本机或指定代理的真实出口 IP**：公开库与 ASN、三网回程、IP 历史、网站 HTTP 和真实 Chromium 风控检测，最后生成中文 HTML / JSON 报告。
 
-## 一条通用命令
+## 极简一键脚本（推荐）
+
+这就是主要用法：只需要 Node.js 18+ 和 curl，不安装 npm 包、不安装浏览器、不注册软件服务。
+
+Windows PowerShell：
+
+```powershell
+irm https://raw.githubusercontent.com/OpenMili/OpenMili-IP-Toolkit/main/simple-ip-check.ps1 | iex
+```
+
+Linux/macOS/Git Bash：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/OpenMili/OpenMili-IP-Toolkit/main/simple-ip-check.sh | sh
+```
+
+脚本自动识别系统，输入 `1` 直连或输入 `2` 填代理端口；然后检查真实出口 IP、ASN/归属和常见网站访问/验证状态，最后只生成一个 JSON 报告。它不会把 HTTP 200 当成“绝对好 IP”。
+
+## 完整检测引擎（可选）
 
 先安装 [Node.js 20+ LTS](https://nodejs.org/)（含 npm/npx），系统需有 curl。在 **Windows CMD、PowerShell、Linux Bash** 中输入同一条命令，从本 GitHub 仓库下载运行：
 
