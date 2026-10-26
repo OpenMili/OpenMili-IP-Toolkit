@@ -21,33 +21,6 @@ const { inspectDNS } = require('../lib/dns');
 const { applyEnvironmentProxy } = require('../lib/proxy-config');
 const TOOL_VERSION=require('../package.json').version;
 
-const HELP = `OpenMili IP Toolkit 2.0 | Windows / Linux / macOS
-用法: openmili-ip [选项]
-默认：检测出口 → 1 直连 / 2 自定义代理端口 → 公开库 → 三网回程 → 历史 → 网站 → 浏览器 → 评分
-
-  --mode auto|direct|proxy       默认交互；无终端时直连
-  --proxy URL / --port 7890      HTTP/HTTPS/SOCKS5，端口默认指本地 HTTP 代理
-  --family 4|6                  网站 HTTP 使用的 IP 协议，默认 IPv4，只有 IPv6 时自动切换
-  --urls FILE / --targets-url URL 自定义本地 YAML / HTTPS 清单（100 KiB 上限）
-  --limit N                     仅测试前 N 项；0=全部
-  --timeout 12                  请求超时秒数（1–120）
-  --no-browser                  跳过真实 Chromium
-  --no-install-browser          不下载缺失的 Chromium
-  --headed                      显示浏览器窗口（需要图形桌面）
-  --browser-path FILE           指定 Chrome/Chromium 可执行文件
-  --browser-wait 1800            页面加载后等待毫秒（0–10000）
-  --screenshots                 所有网站保存截图；默认只截异常页面
-  --no-routes / --no-history / --no-lookup  跳过对应模块
-  --route-targets '名称=IP 名称=IP' 默认北京/上海/广州/成都三网 12 节点
-  --lookup-ip IP --only-lookup   只查指定 IP，网页实测仍始终检查实际出口
-  --skip-ip                     跳过出口获取，实测保留，IP 归因评分停用
-  --output DIR                  报告根目录（默认当前目录 openmili-reports）
-  --no-pause                    不询问模式、不等待退出
-  --min-delay N / --max-delay N  网站间隔秒数，兼容 ms/s 后缀
-
-可选环境变量 ABUSEIPDB_API_KEY：查询最近 90 天举报记录。
-评分不把 ASN=住宅当作优质保证；未测项不计满分。`;
-
 function parseLegacyArgs(args) {
   const o = { mode: 'auto', proxy: '', limit: 0, timeout: 12000, family: 4, browser: true, installBrowser: true,
     routes: true, history: true, lookup: true, minDelay: 300, maxDelay: 500, browserWait: 1800,
@@ -119,6 +92,18 @@ async function chooseMode(options) {
 async function main(args = process.argv.slice(2), runtime = {}) {
   const options = parseArgs(args);
   if (options.help) { console.log(CLI_HELP); return; }
+  if(options.scoring){
+    if((await fs.stat(options.scoring)).size>102400)throw new Error('评分配置不能超过 100 KiB');
+    options.scoringModel=require('../lib/scoring').validateModel(JSON.parse(await fs.readFile(options.scoring,'utf8')));
+  }
+  if(options.command==='score'){
+    if((await fs.stat(options.input)).size>16*1024*1024)throw new Error('评分报告不能超过 16 MiB');
+    const input=JSON.parse(await fs.readFile(options.input,'utf8'));
+    if(!require('../lib/schema').validateReport(input))throw new Error('输入报告未通过 JSON Schema');
+    const score=options.scoringModel?require('../lib/scoring').scoreReport({...input,score_input:undefined},options.scoringModel):scoreReport(input);
+    if(options.outputFile)await fs.writeFile(options.outputFile,JSON.stringify(score,null,2),{mode:0o600});
+    console.log(options.json?JSON.stringify(score):`Score: ${score.reference??'UNKNOWN'}/100 | Coverage: ${score.coverage}% | ${score.grade_code}`);return score;
+  }
   options.signal=runtime.signal;
   applyEnvironmentProxy(options);
   if (options.lookupIP) options.family=net.isIP(options.lookupIP);
@@ -126,7 +111,7 @@ async function main(args = process.argv.slice(2), runtime = {}) {
   if(options.command==='port'&&net.isIP(options.host))options.family=net.isIP(options.host);
   options.sourceIP=bindSource(options);
   const privacy={secrets:environmentSecrets(),redact:options.redact,hostnames:[os.hostname()]};
-  const log = message => { if(!options.json) console.log(sanitizeText(message,privacy)); };
+  const log = require('../lib/ui').logger(options,privacy);
   const curl = await runProcess(process.platform === 'win32' ? 'curl.exe' : 'curl', ['-q','--version']);
   if (curl.code !== 0 && !options.offline && !['doctor','port'].includes(options.command)) throw new Error('未找到 curl。Windows 10/11 通常自带；Linux 请安装 curl。');
   const startedAt = new Date().toISOString();
@@ -166,7 +151,7 @@ async function main(args = process.argv.slice(2), runtime = {}) {
   if (options.lookupIP && !options.onlyLookup && options.lookupIP !== selectedIP) throw new Error('lookup-ip 与实际出口不同；请加 --only-lookup 单独查询，避免混合评分');
   const checkedIP = options.onlyLookup && options.lookupIP ? options.lookupIP : selectedIP;
   const report = { schemaVersion: 2, startedAt, system: `${os.type()} ${os.release()} ${os.arch()}`, mode: options.mode,
-    environment,proxy: redactProxy(options.proxy),proxyOrigin:options.proxyOrigin||'explicit-or-direct',envProxyRules:options.envProxies?{http:redactProxy(options.envProxies.http),https:redactProxy(options.envProxies.https),noProxy:options.envProxies.noProxy}:undefined, family: options.family, selectedIP: checkedIP, direct, exit, sites: [] };
+    environment,command:options.command,familyExplicit:options.familyExplicit,proxy: redactProxy(options.proxy),proxyOrigin:options.proxyOrigin||'explicit-or-direct',envProxyRules:options.envProxies?{http:redactProxy(options.envProxies.http),https:redactProxy(options.envProxies.https),noProxy:options.envProxies.noProxy}:undefined, family: options.family, selectedIP: checkedIP, direct, exit, sites: [] };
   if(options.command === 'dns'){
     report.dns=await inspectDNS({...transport,publicIP:checkedIP});report.finishedAt=new Date().toISOString();
     const safe=await saveReport(report,output,options);if(options.json)console.log(JSON.stringify(safe));else{log(`DNS: ${report.dns.reason}`);log(`报告: ${path.join(output,'report.html')}`);}return safe;
@@ -221,10 +206,12 @@ async function main(args = process.argv.slice(2), runtime = {}) {
     report.browser = options.browser && report.sites.length ? await probeBrowserSites(report.sites, { ...options, expectedIP: selectedIP, evidenceDir: path.join(output,'evidence') }, log) : { status: 'untested', reason: report.sites.length?'用户跳过':'没有可用目标清单' };
     if (!options.browser) for (const site of report.sites) site.browser = { kind: 'untested', label: '未测试', reason: '用户跳过' };
   } else report.browser = { status: 'untested', reason: '仅查询数据库' };
+  report.score_model=options.scoringModel;
   report.score = scoreReport(report);
   report.finishedAt = new Date().toISOString();
   const safe=await saveReport(report, output,options);
   if (options.json) console.log(JSON.stringify(safe));
+  else console.log(require('../lib/ui').summary(safe,options));
   if (safe.mode === 'lookup') log('查询模式：未通过所查 IP 实测，不提供实际出口综合评分');
   else log(`已测项目参考分: ${report.score.reference ?? '未知'}/100 | 证据覆盖 ${report.score.coverage}% | ${report.score.grade}`);
   log(`报告: ${path.join(output, 'report.html')}`);
@@ -236,7 +223,21 @@ async function main(args = process.argv.slice(2), runtime = {}) {
 if (require.main === module) {
   const controller=new AbortController();
   const abort=()=>controller.abort(); process.on('SIGINT',abort); process.on('SIGTERM',abort);
-  main(undefined,{signal:controller.signal}).catch(error => { console.error(sanitizeText(`[!] ${error.message}`,{secrets:environmentSecrets()})); process.exitCode=controller.signal.aborted?EXIT.INTERRUPTED:EXIT.ARGUMENT; })
+  const run=async()=>{
+    if(process.argv.length>2||!process.stdin.isTTY||!process.stdout.isTTY)return main(undefined,{signal:controller.signal});
+    let language='zh-CN',last,lastReport;
+    while(!controller.signal.aborted){
+      const selection=await require('../lib/ui').menu({signal:controller.signal,language,last});
+      if(!selection)break;language=selection.language;
+      if(selection.action){
+        if(!lastReport)try{lastReport=JSON.parse(await fs.readFile(path.resolve('openmili-reports/latest.json'),'utf8'));}catch{}
+        if(lastReport){const text=selection.action==='d'?JSON.stringify(lastReport.modules,null,2):require('../lib/ui').summary(lastReport,{plain:true,language});console.log(sanitizeText(text,{secrets:environmentSecrets()}));}
+        else console.log(language==='en'?'No local report yet.':'尚无本地报告。');
+      }
+      if(selection.args){last=selection.args;try{lastReport=await main([...last,'--language',language],{signal:controller.signal});}catch(error){console.error(sanitizeText(error.message,{secrets:environmentSecrets()}));}}
+    }
+  };
+  run().catch(error => { console.error(sanitizeText(`[!] ${error.message}`,{secrets:environmentSecrets()})); process.exitCode=controller.signal.aborted?EXIT.INTERRUPTED:EXIT.ARGUMENT; })
     .finally(()=>{process.removeListener('SIGINT',abort);process.removeListener('SIGTERM',abort);});
 }
 module.exports = { parseArgs, chooseMode, main };

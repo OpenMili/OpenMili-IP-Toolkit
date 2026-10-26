@@ -104,14 +104,14 @@ test('历史只计算精确当前前缀，排除上级路由的起源污染', ()
 test('评分不将未测试变成满分，也不把浏览器出口混用', () => {
   const sites = Array.from({length:5},() => ({weight:1,http:{kind:'reachable',identityVerified:true},browser:{kind:'untested'}}));
   let score = scoreReport({sites});
-  assert.equal(score.earned,30); assert.equal(score.coverage,30); assert.equal(score.grade,'证据不足');
-  assert.deepEqual(score.range,[30,100]);
+  assert.equal(score.earned,25); assert.equal(score.coverage,25); assert.equal(score.grade,'证据不足');
+  assert.deepEqual(score.range,[25,100]);
   sites.forEach(s => s.browser = {kind:'reachable',identityMismatch:true});
-  assert.equal(scoreReport({sites}).coverage,30);
+  assert.equal(scoreReport({sites}).coverage,25);
   sites.forEach(s => s.http.identityVerified = false);
   assert.equal(scoreReport({sites}).coverage,0);
   score = scoreReport({sites:[],database:{reputation:{tested:true,risk:0,coverage:0.25}}});
-  assert.equal(score.earned,5); assert.equal(score.coverage,5);
+  assert.equal(score.earned,7.5); assert.equal(score.coverage,7.5);
   const stars=scoreReport({routes:{results:[{hops:[{ip:null,anonymous:true}],reached:false}]}});assert.equal(stars.components.find(c=>c.name==='routes').measured,0);
 });
 

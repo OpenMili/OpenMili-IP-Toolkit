@@ -1,0 +1,10 @@
+{
+  "version": "scoring-v1.0.0",
+  "weights": {"reputation": 30, "websites": 25, "routes": 20, "dns": 15, "network": 10},
+  "minimum_coverage": 60,
+  "grades": {"excellent": 90, "good": 75, "fair": 55},
+  "website_factors": {"reachable": 1, "login": 0.65, "challenge": 0.2, "captcha": 0.2, "restricted": 0, "region": 0, "rate-limit": 0.25, "redirect": 0.4, "network": 0, "http-error": 0},
+  "route_partial_factor": 0.5,
+  "dns_limited_factor": 0.5,
+  "network_single_source_factor": 0.5
+}
