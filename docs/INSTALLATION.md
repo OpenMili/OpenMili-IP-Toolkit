@@ -15,6 +15,6 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Version v2.4.
 
 `uninstall --yes`只删除本工具元数据登记的版本和启动器，保留不认识的用户文件、配置、密钥和报告；Windows正在运行的便携node退出后才执行后台隐藏清理。`--purge-cache`额外删除专属API/节点缓存。不会删除系统Node/npm/curl/浏览器、DNS、防火墙规则或Git源码。源码目录执行uninstall返回SKIPPED。
 
-正式便携构建目标：Linux glibc x64/ARM64、Windows x64、macOS runner原生架构；以Release附件和CI证据为准。Windows ARM64可用系统Node的源码命令，尚无原生便携包。Alpine/musl使用发行版Node/npm/curl的源码入口；glibc二进制不能在musl直接运行。Rocky/RHEL等需满足所含Node运行时glibc要求；没有逐发行版实机证据时不宣称全部验证。
+正式便携构建目标：Linux glibc x64/ARM64、Windows x64、macOS runner原生架构；原生便携全流程已验证，正式附件以对应Release/Actions为准。Debian、Fedora、Rocky9、Alma9、Arch、RHEL UBI9另有核心容器CI；容器验证不等于每个宿主系统/版本均已实机测试。Windows ARM64可用系统Node的源码命令，尚无原生便携包。Alpine/musl使用发行版Node/npm/curl的源码入口；glibc二进制不能在musl直接运行。Rocky/RHEL等需满足所含Node运行时glibc要求；没有逐发行版实机证据时不宣称全部验证。
 
 `websites --mode browser` / `all --browser`按需加载独立Playwright worker，优先本机Chrome/Edge，缺少时可下载Chromium；`--no-install`禁止下载。Linux浏览器系统库仍需用户通过发行版包管理器安装，工具不会擅自sudo。worker缓存和系统浏览器分开，退出时清理临时会话。

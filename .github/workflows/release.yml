@@ -62,3 +62,35 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "$GITHUB_REF_NAME" dist/*.tar.gz dist/SHA256SUMS dist/install.sh dist/install.ps1 dist/uninstall.sh dist/uninstall.ps1 --title "OpenMili-IP-Toolkit $GITHUB_REF_NAME" --notes-file docs/RELEASE_NOTES.md --verify-tag
+  verify-published-installers:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: publish
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      OPENMILI_TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify public shell installer and bundled runtime
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          sh install.sh --version "$OPENMILI_TAG" --root "$RUNNER_TEMP/openmili-public-install"
+          "$RUNNER_TEMP/openmili-public-install/openmili-ip" doctor --offline --json --output "$RUNNER_TEMP/doctor.json" > "$RUNNER_TEMP/stdout.json"
+          "$RUNNER_TEMP/openmili-public-install/openmili-ip" uninstall --yes
+          test ! -e "$RUNNER_TEMP/openmili-public-install/current.txt"
+      - name: Verify public PowerShell installer and deferred owned cleanup
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $installPath=Join-Path $env:RUNNER_TEMP 'openmili-public-install'
+          & ./install.ps1 -Version $env:OPENMILI_TAG -InstallRoot $installPath -Yes
+          & (Join-Path $installPath 'openmili-ip.cmd') doctor --offline --json --output (Join-Path $env:RUNNER_TEMP 'doctor.json')
+          if($LASTEXITCODE -ne 0){throw 'Portable doctor failed'}
+          & (Join-Path $installPath 'openmili-ip.cmd') uninstall --yes
+          if($LASTEXITCODE -ne 0){throw 'Portable uninstall failed'}
+          for($attempt=0;$attempt -lt 20 -and (Test-Path -LiteralPath (Join-Path $installPath 'current.txt'));$attempt++){Start-Sleep -Milliseconds 250}
+          if(Test-Path -LiteralPath (Join-Path $installPath 'current.txt')){throw 'Deferred cleanup did not finish'}

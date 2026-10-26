@@ -12,7 +12,7 @@
 | P1 | RIPE/Cymru/官方 RDAP、多源证据融合、独立风险、DNS UDP/TCP/DoH/DoT、代理核验、TTL/退避/离线 | 已完成；38 项回归通过，370a726 的 Windows/Linux × Node20/24 CI 全通过，外部 DoT 不可达如实标未知 |
 | P2 | 有来源且有健康记录的目标目录、双栈多协议路由/完整跳点/方向、版本化分类站点规则与协议错误 | 已完成；22a3819四组CI全通过，含Linux六种实际路由协议；18/18节点归属核验与38站HTTP记录见P2证据 |
 | P3 | 配置化多维评分/覆盖率/重放、交互菜单/进度/重试/语言、JSON/HTML/Markdown/TXT 与隐私 | 已完成；本机49项回归通过，ae75208四组CI全通过；离线重放、HTML真实Chromium和原生PTY有证据 |
-| P4 | 浏览器按需、授权 Agent、ARM64/平台验证、校验安装/升级回滚/安全卸载、Release、安全与中英文文档 | 代码已实现，本机52项回归通过；Windows便携安装/升级/回滚/卸载已实测，待原生ARM64/macOS、真实SSH和Release流程验收 |
+| P4 | 浏览器按需、授权 Agent、ARM64/平台验证、校验安装/升级回滚/安全卸载、Release、安全与中英文文档 | 代码与原生包已验收：Windows/Linux x64/Linux ARM64/macOS ARM64便携全流程、真实SSH、Alpine及六个发行版核心检查通过；正式附件以v2.4.0 Release工作流及公开安装验证为准 |
 
 ## 必须维持的约束
 
