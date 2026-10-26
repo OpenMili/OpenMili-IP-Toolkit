@@ -45,3 +45,31 @@ test('P4 校验不符/路径越界拒绝，源码卸载与非自有目录不删�
     assert.equal((await uninstall()).status,'skipped');assert.equal(await fs.readFile(path.join(temp,'user-file'),'utf8'),'keep');
   }finally{await fs.rm(temp,{recursive:true,force:true});}
 });
+test('P4 浏览器启动期间取消后关闭实例，不再请求出口或网站',async t=>{
+  const {EventEmitter}=require('node:events'),controller=new AbortController();
+  let contexts=0,closed=0;
+  const browser=new EventEmitter();browser.newContext=async()=>{contexts++;throw new Error('unexpected request');};
+  browser.close=async()=>{closed++;browser.emit('disconnected');};
+  t.mock.method(require('../browser-worker'),'loadPlaywright',async()=>({api:{chromium:{launch:async()=>{controller.abort();return browser;}}}}));
+  const sites=[{name:'fixture',url:'https://example.org/'}];
+  const result=await require('../lib/browser').probeBrowserSites(sites,{signal:controller.signal,family:4});
+  assert.equal(result.status,'untested');assert.match(result.reason,/用户中止/);assert.equal(contexts,0);assert.equal(closed,1);
+  assert.equal(sites[0].browser.kind,'untested');assert.notEqual(sites[0].browser.identityVerified,true);
+});
+test('P4 no-install 即使 worker 已有也禁止浏览器下载',async t=>{
+  t.mock.method(require('../browser-worker'),'loadPlaywright',async()=>({resolve:'/nonexistent/package.json',api:{chromium:{launch:async()=>{throw new Error('fixture browser missing');}}}}));
+  const logs=[];
+  await assert.rejects(()=>require('../lib/browser').launchBrowser({noInstall:true,installBrowser:true},s=>logs.push(s)),/fixture browser missing/);
+  assert.deepEqual(logs,[]);
+});
+if(process.platform==='win32')test('P4 Windows 缺 IPv6 默认路由或 DNS 权限时保留 IPv4/网卡数据',async()=>{
+  const mock=`function Get-NetRoute($DestinationPrefix){if($DestinationPrefix -eq '::/0'){throw 'no IPv6 default route'};[pscustomobject]@{InterfaceAlias='fixture-lan';InterfaceIndex=1;NextHop='192.0.2.1';RouteMetric=1}}
+function Get-NetIPInterface{[pscustomobject]@{InterfaceAlias='fixture-lan';InterfaceIndex=1;AddressFamily=2;NlMtu=1500;InterfaceMetric=1}}
+function Get-DnsClientServerAddress{throw 'fixture access denied'}
+function Get-DnsClientGlobalSetting{[pscustomobject]@{SuffixSearchList=@('example.test')}}
+`;
+  const r=await require('../lib/transport').runProcess('powershell.exe',['-NoProfile','-NonInteractive','-Command',mock+require('../lib/system').WINDOWS_DETAILS_SCRIPT]);
+  assert.equal(r.code,0,r.stderr);const result=JSON.parse(r.stdout);
+  assert.equal(result.routes[0].NextHop,'192.0.2.1');assert.equal(result.interfaces[0].NlMtu,1500);assert.deepEqual(result.search,['example.test']);
+  assert.deepEqual(result.dns,[]);assert.match(result.errors['route:::/0'],/no IPv6/);assert.match(result.errors.dns,/access denied/);
+});

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.4.1
+
+- Fix Windows portable self-uninstall: start an independent hidden cleanup process and confirm readiness before returning. Native and public-installer checks now uninstall through the installed launcher and verify user-file preservation.
+- Retain IPv4 routes, interfaces and DNS details when another Windows system query is unavailable.
+- Honor no-install/offline flags for an existing browser worker and close browsers cancelled during startup before any egress request.
+
 ## 2.4.0
 
 - Optional browser worker, default HTTP mode and independent browser egress checks.

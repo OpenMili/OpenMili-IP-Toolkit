@@ -90,7 +90,16 @@ jobs:
           & ./install.ps1 -Version $env:OPENMILI_TAG -InstallRoot $installPath -Yes
           & (Join-Path $installPath 'openmili-ip.cmd') doctor --offline --json --output (Join-Path $env:RUNNER_TEMP 'doctor.json')
           if($LASTEXITCODE -ne 0){throw 'Portable doctor failed'}
+          Set-Content -LiteralPath (Join-Path $installPath 'keep-user-file.txt') -Value 'user data'
           & (Join-Path $installPath 'openmili-ip.cmd') uninstall --yes
           if($LASTEXITCODE -ne 0){throw 'Portable uninstall failed'}
-          for($attempt=0;$attempt -lt 20 -and (Test-Path -LiteralPath (Join-Path $installPath 'current.txt'));$attempt++){Start-Sleep -Milliseconds 250}
-          if(Test-Path -LiteralPath (Join-Path $installPath 'current.txt')){throw 'Deferred cleanup did not finish'}
+          $owned=@('current.txt','versions','launch.ps1','openmili-ip','openmili-ip.cmd','.openmili-install.json')
+          for($attempt=0;$attempt -lt 40;$attempt++){
+            $remaining=@($owned | Where-Object {Test-Path -LiteralPath (Join-Path $installPath $_)})
+            if(!$remaining.Count){break}
+            $errorFile=Join-Path $installPath '.openmili-uninstall-error.txt'
+            if(Test-Path -LiteralPath $errorFile){throw (Get-Content -LiteralPath $errorFile -Raw)}
+            Start-Sleep -Milliseconds 250
+          }
+          if($remaining.Count){throw "Deferred cleanup did not finish: $remaining"}
+          if((Get-Content -LiteralPath (Join-Path $installPath 'keep-user-file.txt') -Raw).Trim() -ne 'user data'){throw 'User file was not preserved'}

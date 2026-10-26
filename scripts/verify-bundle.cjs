@@ -9,7 +9,7 @@ const {runProcess}=require('../lib/transport');
 (async()=>{
   const temp=await fs.mkdtemp(path.join(os.tmpdir(),'openmili-portable-test-'));
   try{
-    const dist=path.resolve('dist'),name=(await fs.readdir(dist)).find(n=>n.endsWith(`-${process.platform}-${process.arch}.tar.gz`));assert.ok(name,'native archive missing');
+    const dist=path.resolve('dist'),name=`OpenMili-IP-Toolkit-v${require('../package.json').version}-${process.platform}-${process.arch}.tar.gz`;assert.ok((await fs.readdir(dist)).includes(name),'current native archive missing');
     const archive=path.join(dist,name),checksum=(await fs.readFile(archive+'.sha256','utf8')).split(/\s+/)[0],root=path.join(temp,'openmili-ip');
     const first=await install.installArchive({installRoot:root,archive,checksum});
     const launcher=process.platform==='win32'?{command:'powershell.exe',args:['-NoProfile','-ExecutionPolicy','Bypass','-File',path.join(root,'launch.ps1')]}:{command:'sh',args:[path.join(root,'openmili-ip')]};
@@ -26,8 +26,13 @@ const {runProcess}=require('../lib/transport');
     await install.installArchive({installRoot:root,archive:fixture,checksum:hash});assert.equal((await install.metadata(root)).current,'v'+pkg.version);
     assert.equal((await install.rollback(root)).version,first.version);
     await fs.writeFile(path.join(root,'keep-user-file.txt'),'user data');
-    await install.uninstall(root,{yes:true});assert.equal(await fs.readFile(path.join(root,'keep-user-file.txt'),'utf8'),'user data');
-    assert.equal(await fs.stat(path.join(root,'versions',first.version)).then(()=>true).catch(()=>false),false);
-    console.log(`REAL portable ${process.platform}/${process.arch}: runtime launch, no core browser dependency, optional worker install, SHA rejection, upgrade, rollback, owned uninstall PASS`);
+    const removed=await runProcess(launcher.command,[...launcher.args,'uninstall','--yes'],{timeout:30000});assert.equal(removed.code,0,removed.stderr);
+    const deadline=Date.now()+10000,owned=[...Object.keys(install.launchers()),'current.txt',install.MARKER,'versions'];
+    while((await Promise.all(owned.map(p=>fs.stat(path.join(root,p)).then(()=>true).catch(()=>false)))).some(Boolean)){
+      const error=await fs.readFile(path.join(root,'.openmili-uninstall-error.txt'),'utf8').catch(()=>null);assert.equal(error,null,error);
+      assert.ok(Date.now()<deadline,'Self-uninstall did not remove all owned resources');await new Promise(r=>setTimeout(r,100));
+    }
+    assert.equal(await fs.readFile(path.join(root,'keep-user-file.txt'),'utf8'),'user data');
+    console.log(`REAL portable ${process.platform}/${process.arch}: runtime launch, no core browser dependency, optional worker install, SHA rejection, upgrade, rollback, launcher self-uninstall with user-file preservation PASS`);
   }finally{await fs.rm(temp,{recursive:true,force:true});}
 })().catch(error=>{console.error(error.stack);process.exitCode=1;});
