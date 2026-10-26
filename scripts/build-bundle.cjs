@@ -9,7 +9,7 @@ const pkg=require('../package.json');
 async function command(cmd,args,options={}){const r=await runProcess(cmd,args,{timeout:180000,maxOutput:1024*1024,...options});if(r.code!==0||r.error)throw new Error(`${cmd} failed: ${r.error||r.stderr.slice(0,2000)+'\n'+r.stderr.slice(-1000)}`);return r;}
 async function removeLinks(dir){for(const e of await fs.readdir(dir,{withFileTypes:true})){const p=path.join(dir,e.name);if(e.isSymbolicLink())await fs.unlink(p);else if(e.isDirectory())await removeLinks(p);}}
 (async()=>{
-  const stage=await fs.mkdtemp(path.join(os.tmpdir(),'openmili-bundle-')),dist=path.resolve('dist');
+  const stage=await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(),'openmili-bundle-'))),dist=path.resolve('dist');
   try{
     for(const name of [...pkg.files,'package.json','package-lock.json','LICENSE'])await fs.cp(path.resolve(name),path.join(stage,name),{recursive:true,dereference:true});
     const npm=npmCommand(['ci','--prefix',stage,'--omit=dev','--ignore-scripts','--no-audit','--no-fund']);await command(npm.command,npm.args,{cwd:stage,env:npmEnvironment()});
