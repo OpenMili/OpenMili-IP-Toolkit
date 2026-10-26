@@ -27,6 +27,7 @@ async function main() {
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const port = server.address().port;
   const targets = path.join(os.tmpdir(), `openmili-smoke-${process.pid}.yaml`);
+  const reports = fs.mkdtempSync(path.join(os.tmpdir(), 'openmili-smoke-reports-'));
   fs.writeFileSync(targets, [
     '# YAML regression: quotes, comments, field order, URL fragments and duplicates',
     'domains:',
@@ -46,11 +47,12 @@ async function main() {
   try {
     const checks = [];
     if (process.platform === 'win32') {
-      checks.push(['PowerShell', 'powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(root, 'run.ps1'), '-Mode', 'direct', '-Urls', targets, '-SkipIP', '-NoPause', '-MinDelayMs', '0', '-MaxDelayMs', '0']]);
+      checks.push(['PowerShell', 'powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(root, 'run.ps1'), '-Mode', 'direct', '-Urls', targets, '-SkipIP', '-NoPause', '-NoBrowser', '-NoRoutes', '-NoHistory', '-NoLookup', '-MinDelayMs', '0', '-MaxDelayMs', '0', '-Output', reports]]);
     }
     const bash = process.env.TEST_BASH || (process.platform === 'win32' ? '' : 'bash');
     if (bash) {
-      checks.push(['Bash', bash, [path.join(root, 'run.sh'), '--mode', 'direct', '--urls', targets, '--skip-ip', '--no-pause', '--min-delay', '0', '--max-delay', '0']]);
+      const script = process.platform === 'win32' ? path.join(root, 'run.sh').replace(/\\/g, '/').replace(/^([A-Z]):/i, (_, d) => `/${d.toLowerCase()}`) : path.join(root, 'run.sh');
+      checks.push(['Bash', bash, [script, '--mode', 'direct', '--urls', targets, '--skip-ip', '--no-pause', '--no-browser', '--no-routes', '--no-history', '--no-lookup', '--min-delay', '0', '--max-delay', '0', '--output', reports]]);
     }
     for (const [name, command, args] of checks) {
       const output = await run(command, args);
@@ -69,6 +71,7 @@ async function main() {
     }
   } finally {
     fs.rmSync(targets, { force: true });
+    fs.rmSync(reports, { recursive: true, force: true });
     await new Promise(resolve => server.close(resolve));
   }
 }

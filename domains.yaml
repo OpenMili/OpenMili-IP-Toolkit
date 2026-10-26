@@ -2,10 +2,13 @@
 domains:
   - name: ChatGPT
     url: https://chatgpt.com/
+    weight: 3
   - name: Claude
     url: https://claude.ai/
+    weight: 3
   - name: Google Scholar
     url: https://scholar.google.com/
+    weight: 3
   - name: Netflix
     url: https://www.netflix.com/
   - name: Disney+
@@ -16,15 +19,70 @@ domains:
     url: https://x.com/
   - name: Reddit
     url: https://www.reddit.com/
+    weight: 3
   - name: Discord
     url: https://discord.com/
   - name: Perplexity
     url: https://www.perplexity.ai/
+    weight: 3
   - name: ScienceDirect
     url: https://www.sciencedirect.com/
+    weight: 3
   - name: ResearchGate
     url: https://www.researchgate.net/
   - name: JSTOR
     url: https://www.jstor.org/
   - name: arXiv
     url: https://arxiv.org/
+  - name: Google Search
+    url: https://www.google.com/search?q=OpenMili
+    weight: 2
+  - name: Bing Search
+    url: https://www.bing.com/search?q=OpenMili
+  - name: Gemini
+    url: https://gemini.google.com/
+    weight: 2
+  - name: Grok
+    url: https://grok.com/
+    weight: 3
+  - name: Hugging Face
+    url: https://huggingface.co/
+  - name: OpenRouter
+    url: https://openrouter.ai/
+  - name: Poe
+    url: https://poe.com/
+    weight: 2
+  - name: GitHub
+    url: https://github.com/
+  - name: Stack Overflow
+    url: https://stackoverflow.com/questions
+    weight: 2
+  - name: Medium
+    url: https://medium.com/
+    weight: 2
+  - name: Quora
+    url: https://www.quora.com/
+    weight: 3
+  - name: Amazon
+    url: https://www.amazon.com/
+    weight: 2
+  - name: eBay
+    url: https://www.ebay.com/
+  - name: PayPal
+    url: https://www.paypal.com/
+    weight: 2
+  - name: Stripe
+    url: https://stripe.com/
+  - name: TikTok
+    url: https://www.tiktok.com/
+    weight: 2
+  - name: Twitch
+    url: https://www.twitch.tv/
+  - name: Spotify
+    url: https://open.spotify.com/
+  - name: Notion
+    url: https://www.notion.so/
+  - name: Vercel
+    url: https://vercel.com/
+  - name: Cloudflare
+    url: https://www.cloudflare.com/
