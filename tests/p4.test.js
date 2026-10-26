@@ -50,16 +50,14 @@ test('P4 浏览器启动期间取消后关闭实例，不再请求出口或网�
   let contexts=0,closed=0;
   const browser=new EventEmitter();browser.newContext=async()=>{contexts++;throw new Error('unexpected request');};
   browser.close=async()=>{closed++;browser.emit('disconnected');};
-  t.mock.method(require('../browser-worker'),'loadPlaywright',async()=>({api:{chromium:{launch:async()=>{controller.abort();return browser;}}}}));
   const sites=[{name:'fixture',url:'https://example.org/'}];
-  const result=await require('../lib/browser').probeBrowserSites(sites,{signal:controller.signal,family:4});
+  const result=await require('../lib/browser').probeBrowserSites(sites,{signal:controller.signal,family:4,launchBrowser:async()=>{controller.abort();return browser;}});
   assert.equal(result.status,'untested');assert.match(result.reason,/用户中止/);assert.equal(contexts,0);assert.equal(closed,1);
   assert.equal(sites[0].browser.kind,'untested');assert.notEqual(sites[0].browser.identityVerified,true);
 });
 test('P4 no-install 即使 worker 已有也禁止浏览器下载',async t=>{
-  t.mock.method(require('../browser-worker'),'loadPlaywright',async()=>({resolve:'/nonexistent/package.json',api:{chromium:{launch:async()=>{throw new Error('fixture browser missing');}}}}));
   const logs=[];
-  await assert.rejects(()=>require('../lib/browser').launchBrowser({noInstall:true,installBrowser:true},s=>logs.push(s)),/fixture browser missing/);
+  await assert.rejects(()=>require('../lib/browser').launchBrowser({noInstall:true,installBrowser:true,browserPath:path.join(os.tmpdir(),'missing-openmili-browser.exe')},s=>logs.push(s)));
   assert.deepEqual(logs,[]);
 });
 if(process.platform==='win32')test('P4 Windows 缺 IPv6 默认路由或 DNS 权限时保留 IPv4/网卡数据',async()=>{

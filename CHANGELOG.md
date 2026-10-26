@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.4.2
+
+- Isolate browser cancellation and no-install regression fixtures so parallel Node 20/24 integration tests cannot interfere with one another.
+
+
 ## 2.4.1
 
 - Fix Windows portable self-uninstall: start an independent hidden cleanup process and confirm readiness before returning. Native and public-installer checks now uninstall through the installed launcher and verify user-file preservation.

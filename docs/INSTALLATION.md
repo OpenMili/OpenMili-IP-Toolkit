@@ -5,8 +5,8 @@
 下载并检查本仓库 `install.sh` / `install.ps1` 源码后执行：
 
 ```text
-sh install.sh --version v2.4.1
-powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Version v2.4.1
+sh install.sh --version v2.4.2
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Version v2.4.2
 ```
 
 脚本检测系统/架构，从指定GitHub Release获取相应包及SHA256SUMS，先校验，再拒绝路径越界/符号链接/特殊文件后解包。默认用户目录安装，无需管理员，不改PATH或系统网络配置。Linux/macOS可用 `--root DIR`，Windows用 `-InstallRoot DIR`。输出绝对启动路径。也可手动核验SHA后解包并用包内node执行CLI。
