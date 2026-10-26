@@ -145,7 +145,7 @@ async function main(args = process.argv.slice(2), runtime = {}) {
   }
   await chooseMode(options);
   log(`模式: ${options.mode === 'proxy' ? `代理 ${redactProxy(options.proxy)}` : '直连'}`);
-  const transport = { proxy: options.proxy, timeout: options.timeout, family: options.family,sourceIP:options.sourceIP,signal:options.signal,offline:options.offline,retries:options.retries };
+  const transport = { proxy: options.proxy, timeout: options.timeout, family: options.command === 'lookup' ? undefined : options.family,sourceIP:options.sourceIP,signal:options.signal,offline:options.offline,retries:options.retries };
   exit = direct;
   if (!options.skipIP && options.mode === 'proxy' && !(options.onlyLookup && options.lookupIP)) {
     exit = await discoverIP(transport);
