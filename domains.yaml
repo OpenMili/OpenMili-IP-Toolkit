@@ -1,0 +1,30 @@
+# 网站检测目标；每项包含 name 和 url。
+domains:
+  - name: ChatGPT
+    url: https://chatgpt.com/
+  - name: Claude
+    url: https://claude.ai/
+  - name: Google Scholar
+    url: https://scholar.google.com/
+  - name: Netflix
+    url: https://www.netflix.com/
+  - name: Disney+
+    url: https://www.disneyplus.com/
+  - name: Instagram
+    url: https://www.instagram.com/
+  - name: X
+    url: https://x.com/
+  - name: Reddit
+    url: https://www.reddit.com/
+  - name: Discord
+    url: https://discord.com/
+  - name: Perplexity
+    url: https://www.perplexity.ai/
+  - name: ScienceDirect
+    url: https://www.sciencedirect.com/
+  - name: ResearchGate
+    url: https://www.researchgate.net/
+  - name: JSTOR
+    url: https://www.jstor.org/
+  - name: arXiv
+    url: https://arxiv.org/

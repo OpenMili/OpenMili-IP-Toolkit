@@ -1,0 +1,5 @@
+# Local test output and editor files
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
