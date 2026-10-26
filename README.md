@@ -7,10 +7,10 @@
 先安装 [Node.js 20+ LTS](https://nodejs.org/)（含 npm/npx），系统需有 curl。在 **Windows CMD、PowerShell、Linux Bash** 中输入同一条命令，从本 GitHub 仓库下载运行：
 
 ```text
-node -e "require('child_process').execSync('npx --yes --package=https://github.com/OpenMili/OpenMili-IP-Toolkit/archive/refs/heads/main.tar.gz openmili-ip',{stdio:'inherit'})"
+node -e "const c=require('child_process'),p=c.spawnSync('git',['config','--get-urlmatch','http.proxy','https://github.com/'],{encoding:'utf8'}).stdout?.trim();c.execSync('npx --yes --allow-remote=root --package=https://github.com/OpenMili/OpenMili-IP-Toolkit/archive/refs/heads/main.tar.gz openmili-ip',{stdio:'inherit',env:{...process.env,...(p?{npm_config_https_proxy:p}:{})}})"
 ```
 
-该命令通过 Node 调用系统命令行，兼容 Windows PowerShell 的脚本执行策略。无需 Git，也不需要发布到 npm。命令使用 `main` 当前版本；安装包及依赖会缓存到 npm 用户缓存。
+该命令通过 Node 调用系统命令行，兼容 Windows PowerShell 的脚本执行策略。无需 Git，也不需要发布到 npm；若本机已配置 Git 的 GitHub HTTP 代理，下载时会自动复用，不修改持久配置。`--allow-remote=root` 仅为本次命令允许直接指定的 GitHub 安装包，兼容限制远程包的新版 npm。命令使用 `main` 当前版本；安装包及依赖会缓存到 npm 用户缓存。
 
 1. 自动识别系统并获取本机 IPv4 / IPv6。
 2. 输入 **1**：直接开始检测。

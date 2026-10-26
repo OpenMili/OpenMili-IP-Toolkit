@@ -21,3 +21,6 @@ jobs:
           REQUIRE_BROWSER_TESTS: '1'
       - run: npm run smoke
       - run: npm pack --dry-run
+      - name: Install GitHub archive outside checkout
+        working-directory: ${{ runner.temp }}
+        run: npx --yes --allow-remote=root --package=https://github.com/OpenMili/OpenMili-IP-Toolkit/archive/${{ github.sha }}.tar.gz openmili-ip --help
