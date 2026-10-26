@@ -13,7 +13,7 @@ const {wrap,statusLabel}=require('../lib/ui');
 const fixture=()=>({startedAt:'2026-10-27T00:00:00.000Z',mode:'local',family:4,sites:[{name:'Fixture only',url:'https://example.org/',weight:1,http:{kind:'reachable',identityVerified:true},browser:{kind:'challenge',identityVerified:true}}],database:{records:[],reputation:{tested:true,risk:.2,coverage:.5}},dns:{checks:[{status:'success'},{status:'limited'},{status:'unknown'}]},routes:{results:[{reached:true,hops:[{ip:'8.8.8.8'}]},{reached:false,hops:[{ip:'1.1.1.1'}]},{reached:false,hops:[{ip:null}]}]},exit:{v4:{ip:'8.8.8.8',stable:true},v6:{stable:false}}});
 test('P3 五维归一化、未知覆盖、方法不重复投票和类型不计分',()=>{
   const r=fixture(),s=scoreReport(r);
-  assert.equal(s.model,'scoring-v1.0.0');assert.equal(s.coverage,68.3);assert.equal(s.earned,39.5);assert.equal(s.reference,57.8);assert.equal(s.grade_code,'fair');
+  assert.equal(s.model,'scoring-v1.1.0');assert.equal(s.coverage,68.3);assert.equal(s.earned,39.5);assert.equal(s.reference,57.8);assert.equal(s.grade_code,'fair');
   assert.equal(s.components.find(x=>x.name==='websites').reference,20);
   r.database.attribute={type:'RESIDENTIAL',confidence:100};assert.deepEqual(scoreReport(r),s);
   r.sites[0].browser.identityVerified=false;assert.equal(scoreReport(r).components.find(x=>x.name==='websites').reference,100);

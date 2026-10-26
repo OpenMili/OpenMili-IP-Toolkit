@@ -18,7 +18,7 @@ $nodeMajor = ((& $node.Source --version) -replace '^v','').Split('.')[0]
 if ([int]$nodeMajor -lt 20) { throw 'Node.js 20+ is required.' }
 if (-not (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'node_modules/yaml/package.json'))) {
     Push-Location $PSScriptRoot
-    try { & npm.cmd ci --no-audit --no-fund; if ($LASTEXITCODE -ne 0) { throw 'npm ci failed' } }
+    try { & npm.cmd ci --omit=dev --ignore-scripts --no-audit --no-fund; if ($LASTEXITCODE -ne 0) { throw 'npm ci failed' } }
     finally { Pop-Location }
 }
 $cli = @((Join-Path $PSScriptRoot 'bin/openmili.js'), '--mode', $Mode, '--limit', [string]$Limit,

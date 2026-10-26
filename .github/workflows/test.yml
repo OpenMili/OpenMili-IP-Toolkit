@@ -26,6 +26,12 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y traceroute
           sudo "$(command -v node)" tests/live-route-smoke.cjs
+      - name: Real authorized SSH Agent
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          sudo apt-get install -y openssh-server
+          bash tests/live-agent-smoke.sh
       - run: npm run smoke
       - run: npm pack --dry-run
       - name: Install GitHub archive outside checkout

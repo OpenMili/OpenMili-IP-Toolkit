@@ -7,6 +7,6 @@ if [ ! -f "$SCRIPT_DIR/node_modules/yaml/package.json" ]; then
   for arg in "$@"; do
     case "$arg" in --no-install|--offline) printf '%s\n' 'Dependencies missing; run npm ci before offline/no-install.' >&2; exit 2;; esac
   done
-  (cd "$SCRIPT_DIR" && npm ci --no-audit --no-fund >&2)
+  (cd "$SCRIPT_DIR" && npm ci --omit=dev --ignore-scripts --no-audit --no-fund >&2)
 fi
 exec node "$SCRIPT_DIR/bin/openmili.js" "$@"

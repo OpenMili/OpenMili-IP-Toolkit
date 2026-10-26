@@ -36,6 +36,8 @@ test('本地 HTTP、显式代理、Chromium 渲染和跨平台入口集成', asy
     if(req.url === '/empty') { res.writeHead(200); return res.end(); }
     if(req.url === '/js') return res.end('<title>Loading</title><body><main id="app">Enable JavaScript</main><script>document.title="App ready";document.getElementById("app").innerText="Loaded content"</script>');
     if(req.url === '/plain') return res.end('<title>Home</title><body>Welcome<script src="/recaptcha/api.js"></script></body>');
+    if(req.url === '/broken.js') {res.writeHead(503);return res.end('unavailable');}
+    if(req.url === '/partial')return res.end('<title>Partially loaded</title><body>Visible content<script src="/broken.js"></script></body>');
     res.end('<title>OK</title><body>ok</body>');
   });
   let proxyHits=0;
@@ -67,12 +69,13 @@ test('本地 HTTP、显式代理、Chromium 渲染和跨平台入口集成', asy
       assert.equal((await probePage(browser,{url:`${base}/captcha`},{browserWait:20})).kind,'captcha');
       assert.equal((await probePage(browser,{url:`${base}/plain`},{browserWait:20})).kind,'reachable');
       assert.equal((await probePage(browser,{url:`${base}/challenge`},{browserWait:20})).kind,'challenge');
+      assert.equal((await probePage(browser,{url:`${base}/partial`},{browserWait:20})).kind,'partial');
       const original=IP_ENDPOINTS[4];
       IP_ENDPOINTS[4]=[`${base}/reset`,`${base}/ip`];
       try {
         const identity=await browserIdentity(browser,4);
-        assert.equal(identity.status,'ok'); assert.equal(identity.ip,'8.8.8.8'); assert.equal(identity.source,`${base}/ip`);
-        assert.equal(identity.observations.length,1);
+        assert.equal(identity.status,'untested'); assert.equal(identity.ip,'8.8.8.8'); assert.equal(identity.source,`${base}/ip`);
+        assert.equal(identity.stable,false);assert.equal(identity.observations.length,2);
       } finally { IP_ENDPOINTS[4]=original; }
       await browser.close(); browser=null;
     });

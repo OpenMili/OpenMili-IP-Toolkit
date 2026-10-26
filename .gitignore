@@ -8,3 +8,4 @@ openmili-reports/
 coverage/
 .artifacts/
 *.tgz
+dist/

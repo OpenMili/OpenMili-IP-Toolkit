@@ -1,0 +1,27 @@
+name: Dependency security
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm audit --audit-level=high
+      - run: npm audit --prefix browser-worker --audit-level=high
+  alpine:
+    runs-on: ubuntu-latest
+    container: node:24-alpine
+    steps:
+      - run: apk add --no-cache curl bash gcompat git
+      - uses: actions/checkout@v4
+      - run: npm ci --omit=dev --ignore-scripts --no-audit --no-fund
+      - name: Core works on musl without browser dependency
+        run: |
+          node bin/openmili.js doctor --offline --json --output /tmp/openmili-check
+          node --test tests/core.test.js tests/dns.test.js tests/providers.test.js tests/p0.test.js tests/route-engine.test.js tests/site-rules.test.js
+          npm run smoke

@@ -22,10 +22,10 @@ const { applyEnvironmentProxy } = require('../lib/proxy-config');
 const TOOL_VERSION=require('../package.json').version;
 
 function parseLegacyArgs(args) {
-  const o = { mode: 'auto', proxy: '', limit: 0, timeout: 12000, family: 4, browser: true, installBrowser: true,
+  const o = { mode: 'auto', proxy: '', limit: 0, timeout: 12000, family: 4, browser: false, installBrowser: true,
     routes: true, history: true, lookup: true, minDelay: 300, maxDelay: 500, browserWait: 1800,
     urls: path.join(__dirname, '..', 'domains.yaml'), output: path.resolve('openmili-reports') };
-  const booleans = { '--no-browser':['browser',false], '--no-install-browser':['installBrowser',false], '--no-routes':['routes',false], '--no-history':['history',false], '--no-lookup':['lookup',false], '--skip-ip':['skipIP',true], '--no-pause':['noPause',true], '--only-lookup':['onlyLookup',true], '--headed':['headed',true], '--screenshots':['screenshots',true], '--lookup':['lookup',true], '--return-routes':['routes',true] };
+  const booleans = { '--browser':['browser',true], '--no-browser':['browser',false], '--no-install-browser':['installBrowser',false], '--no-routes':['routes',false], '--no-history':['history',false], '--no-lookup':['lookup',false], '--skip-ip':['skipIP',true], '--no-pause':['noPause',true], '--only-lookup':['onlyLookup',true], '--headed':['headed',true], '--screenshots':['screenshots',true], '--lookup':['lookup',true], '--return-routes':['routes',true] };
   const values = { '--mode':'mode', '--proxy':'proxy', '--port':'port', '--family':'family', '--limit':'limit', '--urls':'urls', '--targets-url':'targetsUrl', '--timeout':'timeout', '--output':'output', '--lookup-ip':'lookupIP', '--route-targets':'routeTargets', '--browser-path':'browserPath', '--browser-wait':'browserWait', '--min-delay':'minDelay', '--max-delay':'maxDelay', '--min-delay-ms':'minDelayMs', '--max-delay-ms':'maxDelayMs' };
   for (let i = 0; i < args.length; i++) {
     if (['--help','-h'].includes(args[i])) { o.help = true; continue; }
@@ -92,6 +92,12 @@ async function chooseMode(options) {
 async function main(args = process.argv.slice(2), runtime = {}) {
   const options = parseArgs(args);
   if (options.help) { console.log(CLI_HELP); return; }
+  if(['install','update','rollback','uninstall'].includes(options.command)){
+    options.signal=runtime.signal;applyEnvironmentProxy(options);
+    const installer=require('../lib/installation');
+    const result=options.command==='install'?await installer.installArchive(options):options.command==='update'?await installer.update(options):options.command==='rollback'?await installer.rollback(options.installRoot||installer.managedRoot()):await installer.uninstall(options.installRoot||installer.managedRoot(),options);
+    console.log(JSON.stringify(result));return result;
+  }
   if(options.scoring){
     if((await fs.stat(options.scoring)).size>102400)throw new Error('评分配置不能超过 100 KiB');
     options.scoringModel=require('../lib/scoring').validateModel(JSON.parse(await fs.readFile(options.scoring,'utf8')));
@@ -105,6 +111,12 @@ async function main(args = process.argv.slice(2), runtime = {}) {
     console.log(options.json?JSON.stringify(score):`Score: ${score.reference??'UNKNOWN'}/100 | Coverage: ${score.coverage}% | ${score.grade_code}`);return score;
   }
   options.signal=runtime.signal;
+  if(options.command==='agent'){
+    const remote=await require('../lib/agent').runAgent(options);
+    const output=path.join(options.output,new Date().toISOString().replace(/[:.]/g,'-')+`-agent-${process.pid}`);
+    const safe=await saveReport(remote,output,{...options,command:remote.command});
+    console.log(options.json?JSON.stringify(safe):require('../lib/ui').summary(safe,options));return safe;
+  }
   applyEnvironmentProxy(options);
   if (options.lookupIP) options.family=net.isIP(options.lookupIP);
   if(!options.familyExplicit&&options.sourceIP)options.family=net.isIP(options.sourceIP);

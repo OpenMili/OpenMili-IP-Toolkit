@@ -18,4 +18,4 @@ openmili.ps1 / openmili.sh / npm bin
 6. 报告保留标准模块状态与原始来源证据。保存前校验 JSON Schema，再统一删减响应头、过滤密钥与凭据；分享模式额外隐藏 IP/主机名并禁用截图。
 7. UNKNOWN 与 SKIPPED 不算网络故障，也不获得满分；lookup/port 模式不生成出口综合等级。
 
-正式安装包、远程 Agent 与数据源/评分版本隔离将在对应阶段扩充；此文不意味着 P1–P4 已完成。
+数据源、站点规则、路由目录与评分均版本化；评分保存完整输入和模型。浏览器在独立worker用户缓存按需安装，核心不依赖Playwright。受管理便携安装包含Node/npm，校验后自检并保留上一版本；SSH Agent只执行用户预先授权的远端工具。实际平台/Release验收状态以DEVELOPMENT_PLAN与evidence为准。

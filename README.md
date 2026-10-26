@@ -19,11 +19,11 @@ node -e "const c=require('child_process'),p=c.spawnSync('git',['config','--get-u
 
 “自定义端口”指**代理端口**，不是开放本机监听端口。无交互终端或使用 `--no-pause` 时默认直连。
 
-首次浏览器检测优先使用本机 Edge / Chrome，缺失时下载 Chromium。Linux 若缺系统库，执行系统包管理器安装浏览器依赖，或在克隆仓库后运行 `npx playwright install --with-deps chromium`。失败的浏览器项目会标为未测试，HTTP 检测继续执行。
+默认只运行轻量 HTTP 检测；使用 `all --browser` 或 `websites --mode browser` 才开启真实浏览器，并按需安装独立 worker。首次浏览器检测优先使用本机 Edge / Chrome，缺失时下载 Chromium。Linux 若缺系统库，执行系统包管理器安装浏览器依赖，或在克隆仓库后运行 `npx playwright install --with-deps chromium`。失败的浏览器项目会标为未测试，HTTP 检测继续执行。
 
 ## 本地运行
 
-蓝图补齐进度与边界见 [开发计划](docs/DEVELOPMENT_PLAN.md)；当前新增 P0 子命令和稳定报告协议：
+蓝图补齐进度与边界见 [开发计划](docs/DEVELOPMENT_PLAN.md)；包含独立子命令、可复现评分和稳定报告协议：
 
 ```bash
 node bin/openmili.js lookup --ip 8.8.8.8 --json
@@ -62,7 +62,7 @@ Windows 也可双击 `run.cmd` 或使用 `run.ps1`；Linux 可用 `bash run.sh`�
 | 三网回程 | 有来源的北京、上海、广州三网九组双栈域名；DNS/BGP 归属核验、逐跳 ASN/RTT/匿名跳与健康历史，ICMP/TCP/UDP 按平台能力执行。城市仍需核实，不以 ASN 断言 CN2 GIA。 |
 | IP 历史 | 官方 RIR RDAP 网段注册/修改事件、当前精确宣告前缀近 90 天 BGP 起源。不会把上级网段历史、BGP 变化或注册年龄当作滥用记录。 |
 | 举报历史 | 设置环境变量 `ABUSEIPDB_API_KEY` 后查询近 90 天举报。未配置、无返回或无举报不证明没有滥用历史，密钥不写入报告。 |
-| 网站实测 | 默认 38 个版本化分类目标，原始 HTTP、桌面浏览器请求头和真实 Chromium 三种方式。包含 ChatGPT、Claude、Scholar、Reddit、Grok、Quora、ScienceDirect 等验证目标，各站权重可调。 |
+| 网站实测 | 默认 38 个版本化分类目标，原始 HTTP、桌面浏览器请求头和可选真实 Chromium 三种方式。包含 ChatGPT、Claude、Scholar、Reddit、Grok、Quora、ScienceDirect 等验证目标，各站权重可调。 |
 | 风控证据 | 区分验证码、CF 盾、地区限制、登录、429 限流、空白、JS 要求、网络错误；记录状态码、耗时、标题、可见文字片段、最终地址，异常浏览器页面截图。不会绕过验证码。 |
 | 本地历史对比 | 与同一报告根目录的上一次相同出口报告比较网站结果；`latest.json` 保留最近一次完整报告。 |
 
@@ -111,6 +111,12 @@ node bin/openmili.js --headed --screenshots
 
 `--targets-url` 上限 100 KiB，下载只驻留内存。所有 HTTP 请求有超时、大小上限和重定向上限，并验证 TLS；不使用 `curl -k`。截图与报告仅写在本机。截图可能包含访问页面内容，请按需保管。
 
+## 实际报告截图
+
+下图来自本机已保存的38站HTTP实际观测，按当前评分重新渲染并脱敏；未执行的浏览器/数据库/路由保留未知，截图不是全项通过示例。
+
+![实际观测脱敏报告](docs/images/report-actual-redacted.png)
+
 ## 验证
 
 ```bash
@@ -122,3 +128,11 @@ npm pack --dry-run
 回归覆盖 HTTP/浏览器误判、JavaScript 渲染、代理 `NO_PROXY`、重定向最终响应头、YAML、IPv4/IPv6、公网校验、回程解析、ASN 冲突、历史前缀过滤、缺失证据评分和报告转义。GitHub Actions 配置 Windows/Linux、Node 20/24 矩阵，测试时安装真实 Chromium。
 
 backtrace 参考和 MIT 许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+
+## 便携安装与远端
+
+[Releases](https://github.com/OpenMili/OpenMili-IP-Toolkit/releases) 提供包含运行时的便携包与 SHA256SUMS；先检查安装脚本源码，再运行 `install.sh` / `install.ps1`。支持用户级安装、校验、自检后升级、保留上一版、`rollback` 和 `uninstall --yes`。默认保留配置、密钥和报告，不删除系统软件。平台范围与操作见 [安装说明](docs/INSTALLATION.md)。
+
+`agent --ssh user@host --remote-path /absolute/openmili-ip --task all` 在已授权、预先安装的POSIX SSH主机执行，严格验证主机密钥，报告保留远端出口与环境；失败不会替换为本机测量。见 [Agent说明](docs/AGENT.md)。
+
+[English](README_EN.md) · [变更记录](CHANGELOG.md) · [安全说明](SECURITY.md) · [参与开发](CONTRIBUTING.md) · [许可](LICENSE)

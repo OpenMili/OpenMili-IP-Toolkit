@@ -1,4 +1,4 @@
-# 命令行与报告协议（P0）
+# 命令行与报告协议
 
 Windows 原生：`powershell -ExecutionPolicy Bypass -File .\openmili.ps1 lookup --ip 8.8.8.8 --json`。
 Linux/macOS：`sh ./openmili.sh lookup --ip 8.8.8.8 --json`。两入口传递相同参数；旧 run.ps1 参数格式继续兼容。
@@ -8,7 +8,7 @@ Linux/macOS：`sh ./openmili.sh lookup --ip 8.8.8.8 --json`。两入口传递相
 - `doctor`：本地依赖/系统诊断，不修改网络配置。
 - `--interface NAME` / `--source-ip IP`：必须是本机所选协议族地址；不支持与代理混用，失效即停止。curl 记录实际 localIP 与 bindingVerified；浏览器连接桥同样绑定。不能保证绑定的路由工具明确跳过。
 - `--ipv4` / `--ipv6`，`--timeout 1..120`（秒），`--samples 1..10`。
-- `--offline`：所有网络探测停止，保留本地环境与未执行原因。`--no-install`：启动器不安装依赖/浏览器。后续 P1 增加 TTL 缓存读取。
+- `--offline`：所有网络探测停止，保留本地环境与未执行原因。`--no-install`：启动器不安装依赖/浏览器。支持分类TTL缓存读取。
 - `--config FILE`：无别名/重复键的 YAML，键使用 CLI 参数名（去除 `--`）；命令行值覆盖配置。拒绝未知键与不正确类型。
 - `--json`：stdout 只输出一份完整 JSON；诊断错误在 stderr。`--output report.json` 同时保存指定 JSON 文件和时间戳目录内 HTML/JSON。
 - `--redact`：IP/本地主机名打码，关闭截图；密钥、Cookie、认证头、代理凭据、敏感 URL 参数无论是否指定该开关都会过滤。
@@ -17,4 +17,4 @@ JSON 以 `schema_version:1.0.0`、`tool_version`、`target`、`modules`、`score
 
 退出码：0 完成（可含 UNKNOWN），2 参数/初始化错误，3 目标端口诊断失败，130 用户中断。Ctrl+C 关闭活动子进程/浏览器，尽可能保存完成部分；不能把未知数据写成成功。
 
-P1 已实现 DNS 调度 `--concurrency`、provider 有界退避 `--retries` 与 TTL/离线缓存。`--language` 的完整终端渲染由 P3 补齐，尚未验收。
+P1 已实现 DNS 调度 `--concurrency`、provider 有界退避 `--retries` 与 TTL/离线缓存。支持中英文菜单和主要流程，原始外部诊断保留来源语言。评分、安装和Agent命令分别见SCORING、INSTALLATION、AGENT文档。
