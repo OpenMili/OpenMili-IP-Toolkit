@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.4.3
+
+- Retry Windows version activation when antivirus or indexing briefly holds a freshly extracted runtime; failed activation still preserves the previous version.
+
 ## 2.4.2
 
 - Isolate browser cancellation and no-install regression fixtures so parallel Node 20/24 integration tests cannot interfere with one another.
