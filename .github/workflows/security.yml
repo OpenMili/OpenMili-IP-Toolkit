@@ -25,3 +25,36 @@ jobs:
           node bin/openmili.js doctor --offline --json --output /tmp/openmili-check
           node --test tests/core.test.js tests/dns.test.js tests/providers.test.js tests/p0.test.js tests/route-engine.test.js tests/site-rules.test.js
           npm run smoke
+  distributions:
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [debian:bookworm-slim, fedora:latest, rockylinux:9, almalinux:9, archlinux:base, registry.access.redhat.com/ubi9/ubi:latest]
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ matrix.image }}
+      options: --user 0
+    steps:
+      - name: Prepare disposable distribution container
+        shell: sh
+        run: |
+          if command -v apt-get >/dev/null 2>&1; then
+            apt-get update -qq
+            apt-get install -y --no-install-recommends ca-certificates curl git bash tar gzip xz-utils
+          elif command -v dnf >/dev/null 2>&1; then
+            dnf install -y --allowerasing ca-certificates curl git bash tar gzip xz
+          elif command -v pacman >/dev/null 2>&1; then
+            pacman -Syu --noconfirm ca-certificates curl git bash tar gzip xz
+          else
+            exit 2
+          fi
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci --omit=dev --ignore-scripts --no-audit --no-fund
+      - name: Real core and launcher checks (browser excluded)
+        run: |
+          node bin/openmili.js doctor --offline --json --output /tmp/openmili-distro-check
+          node --test tests/core.test.js tests/dns.test.js tests/providers.test.js tests/p0.test.js tests/route-engine.test.js tests/site-rules.test.js
+          npm run smoke
