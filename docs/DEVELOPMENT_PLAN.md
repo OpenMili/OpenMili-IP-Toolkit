@@ -8,8 +8,8 @@
 
 | 阶段 | 必须交付 | 状态 |
 |---|---|---|
-| P0 | 跨平台入口、子命令/配置/状态/退出码、系统环境、双栈出口、隔离 lookup、TCP/TLS port、JSON Schema、Windows/Linux 冒烟 | 开发中 |
-| P1 | RIPE/Cymru/官方 RDAP、多源证据融合、独立风险、DNS UDP/TCP/DoH/DoT、代理核验、TTL/退避/离线 | 待完成 |
+| P0 | 跨平台入口、子命令/配置/状态/退出码、系统环境、双栈出口、隔离 lookup、TCP/TLS port、JSON Schema、Windows/Linux 冒烟 | 基座回归通过；ce9f0a1 的四组 CI 成功，补丁持续复验 |
+| P1 | RIPE/Cymru/官方 RDAP、多源证据融合、独立风险、DNS UDP/TCP/DoH/DoT、代理核验、TTL/退避/离线 | 本机 38 项回归通过，实际数据源/协议结果见 P1 证据；提交后继续跨平台 CI |
 | P2 | 有来源且有健康记录的目标目录、双栈多协议路由/完整跳点/方向、版本化分类站点规则与协议错误 | 待完成 |
 | P3 | 配置化多维评分/覆盖率/重放、交互菜单/进度/重试/语言、JSON/HTML/Markdown/TXT 与隐私 | 待完成 |
 | P4 | 浏览器按需、授权 Agent、ARM64/平台验证、校验安装/升级回滚/安全卸载、Release、安全与中英文文档 | 待完成 |

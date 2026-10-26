@@ -16,6 +16,9 @@ const { bindSource, inspectSystem } = require('../lib/system');
 const { diagnosePort } = require('../lib/port');
 const { sanitizeText,environmentSecrets } = require('../lib/privacy');
 const { EXIT } = require('../lib/status');
+const { inspectDNS } = require('../lib/dns');
+const { applyEnvironmentProxy } = require('../lib/proxy-config');
+const TOOL_VERSION=require('../package.json').version;
 
 const HELP = `OpenMili IP Toolkit 2.0 | Windows / Linux / macOS
 用法: openmili-ip [选项]
@@ -116,6 +119,7 @@ async function main(args = process.argv.slice(2), runtime = {}) {
   const options = parseArgs(args);
   if (options.help) { console.log(CLI_HELP); return; }
   options.signal=runtime.signal;
+  applyEnvironmentProxy(options);
   if (options.lookupIP) options.family=net.isIP(options.lookupIP);
   options.sourceIP=bindSource(options);
   const privacy={secrets:environmentSecrets(),redact:options.redact,hostnames:[os.hostname()]};
@@ -136,16 +140,16 @@ async function main(args = process.argv.slice(2), runtime = {}) {
     else if(report.port?.status === 'failure') process.exitCode=EXIT.FAILED;
     return safe;
   }
-  log(`OpenMili IP 检测 | ${process.platform === 'win32' ? 'Windows' : process.platform === 'linux' ? 'Linux' : process.platform} | v2.0.0`);
+  log(`OpenMili-IP-Toolkit | ${process.platform === 'win32' ? 'Windows' : process.platform === 'linux' ? 'Linux' : process.platform} | v${TOOL_VERSION}`);
   let direct, exit;
   if (!options.skipIP && !(options.onlyLookup && options.lookupIP)) {
     log('正在获取本机直连 IPv4 / IPv6…');
-    direct = await discoverIP({...options,proxy:''});
+    direct = await discoverIP({...options,proxy:'',envProxies:undefined});
     log(`直连出口: IPv4 ${direct.v4.ip || '未获取'} | IPv6 ${direct.v6.ip || '未获取'}`);
   }
   await chooseMode(options);
   log(`模式: ${options.mode === 'proxy' ? `代理 ${redactProxy(options.proxy)}` : '直连'}`);
-  const transport = { proxy: options.proxy, timeout: options.timeout, family: options.command === 'lookup' ? undefined : options.family,sourceIP:options.sourceIP,signal:options.signal,offline:options.offline,retries:options.retries };
+  const transport = { ...options, family:options.command === 'lookup' ? undefined : options.family };
   exit = direct;
   if (!options.skipIP && options.mode === 'proxy' && !(options.onlyLookup && options.lookupIP)) {
     exit = await discoverIP(transport);
@@ -158,11 +162,16 @@ async function main(args = process.argv.slice(2), runtime = {}) {
   if (options.lookupIP && !options.onlyLookup && options.lookupIP !== selectedIP) throw new Error('lookup-ip 与实际出口不同；请加 --only-lookup 单独查询，避免混合评分');
   const checkedIP = options.onlyLookup && options.lookupIP ? options.lookupIP : selectedIP;
   const report = { schemaVersion: 2, startedAt, system: `${os.type()} ${os.release()} ${os.arch()}`, mode: options.mode,
-    environment,proxy: redactProxy(options.proxy), family: options.family, selectedIP: checkedIP, direct, exit, sites: [] };
+    environment,proxy: redactProxy(options.proxy),proxyOrigin:options.proxyOrigin||'explicit-or-direct',envProxyRules:options.envProxies?{http:redactProxy(options.envProxies.http),https:redactProxy(options.envProxies.https),noProxy:options.envProxies.noProxy}:undefined, family: options.family, selectedIP: checkedIP, direct, exit, sites: [] };
+  if(options.command === 'dns'){
+    report.dns=await inspectDNS({...transport,publicIP:checkedIP});report.finishedAt=new Date().toISOString();
+    const safe=await saveReport(report,output,options);if(options.json)console.log(JSON.stringify(safe));else{log(`DNS: ${report.dns.reason}`);log(`报告: ${path.join(output,'report.html')}`);}return safe;
+  }
   log('查询公开 IP 库与 ASN 归属…');
-  report.database = options.lookup && options.command !== 'ip' && !options.offline && !options.signal?.aborted ? await lookupDatabase(checkedIP, { ...transport, abuseKey: process.env.ABUSEIPDB_API_KEY }) : { status: 'untested', reason: options.offline?'离线模式':'用户跳过或本次只检查 IP', records: [] };
+  report.database = options.lookup && options.command !== 'ip' && !options.signal?.aborted ? await lookupDatabase(checkedIP, { ...transport, abuseKey: process.env.ABUSEIPDB_API_KEY,ipapiKey:process.env.IPAPI_API_KEY,ipinfoKey:process.env.IPINFO_TOKEN }) : { status: 'untested', reason:'用户跳过或本次只检查 IP', records: [] };
   log(`IP 数据库: ${checkedIP || '未获取'} | ${report.database.attribute?.label || '未测试'}`);
-  for (const r of report.database.records || []) log(`  ${r.source}: ${r.status === 'ok' ? `AS${r.asn || '?'} ${r.owner} ${r.country || ''} ${r.city || ''}` : `未测试（${r.reason}）`}`);
+  for (const r of report.database.records || []) log(`  ${r.source||r.provider}: ${r.status === 'ok' ? `AS${r.asns?.join(',') || r.asn || '?'} ${r.owner||r.name||''} ${r.country || r.registered_country || ''} ${r.city || ''}` : `未测试（${r.reason}）`}`);
+  if(!options.onlyLookup && !options.noDNS && !options.skipIP)report.dns=await inspectDNS({...transport,publicIP:checkedIP});
   if (!options.onlyLookup) {
     log('三网回程：北京、上海、广州、成都参考节点…');
     report.routes = options.routes ? await traceRoutes(options.targets, transport, log) : { status: 'untested', reason: '用户跳过', results: [] };
@@ -176,10 +185,12 @@ async function main(args = process.argv.slice(2), runtime = {}) {
     if (options.targetsUrl) {
       if (new URL(options.targetsUrl).protocol !== 'https:') throw new Error('targets-url 必须使用 HTTPS');
       const response = await request(options.targetsUrl, { ...transport, maxBytes: 102400 });
-      if (response.error || response.status !== 200 || new URL(response.finalUrl).protocol !== 'https:') throw new Error(`目标清单下载失败: ${response.error || response.status}`);
-      source = response.body;
+      if (response.error || response.status !== 200 || new URL(response.finalUrl).protocol !== 'https:') {
+        report.websiteSource={status:'unknown',code:'TARGET_LIST_UNAVAILABLE',reason:`目标清单未取得: ${response.error || response.status}`};
+        log(report.websiteSource.reason);
+      } else source = response.body;
     } else source = await fs.readFile(options.urls, 'utf8');
-    report.sites = parseTargets(source);
+    report.sites = source===undefined?[]:parseTargets(source);
     if (options.limit) report.sites = report.sites.slice(0, options.limit);
     log(`网站 HTTP 检测 | IPv${options.family} | ${report.sites.length} 个目标`);
     for (let i = 0; i < report.sites.length; i++) {
@@ -196,9 +207,9 @@ async function main(args = process.argv.slice(2), runtime = {}) {
     const after = options.skipIP ? null : await discoverFamily(options.family, transport);
     const verified = Boolean(selectedIP && after?.ip === selectedIP && selected?.stable && after.stable);
     report.httpIdentity = { before: selected, after, verified, note: 'HTTP 请求固定 IP 协议；起止公网观测一致仍不能排除代理按目标分流。' };
-    for (const site of report.sites) for (const key of ['http','httpPlain']) { site[key] ||= {kind:'untested',label:'未测试',reason:options.offline?'离线模式':'用户中止'}; site[key].identityVerified = verified; }
+    for (const site of report.sites) for (const key of ['http','httpPlain']) { site[key] ||= {kind:'untested',label:'未测试',reason:options.offline?'离线模式':'用户中止'}; site[key].identityVerified = verified && !site[key].proxyBypassed; }
     log(`完成 HTTP | 服务可达 ${report.sites.filter(s => s.http?.kind === 'reachable').length}/${report.sites.length}`);
-    report.browser = options.browser ? await probeBrowserSites(report.sites, { ...options, expectedIP: selectedIP, evidenceDir: path.join(output,'evidence') }, log) : { status: 'untested', reason: '用户跳过' };
+    report.browser = options.browser && report.sites.length ? await probeBrowserSites(report.sites, { ...options, expectedIP: selectedIP, evidenceDir: path.join(output,'evidence') }, log) : { status: 'untested', reason: report.sites.length?'用户跳过':'没有可用目标清单' };
     if (!options.browser) for (const site of report.sites) site.browser = { kind: 'untested', label: '未测试', reason: '用户跳过' };
   } else report.browser = { status: 'untested', reason: '仅查询数据库' };
   report.score = scoreReport(report);

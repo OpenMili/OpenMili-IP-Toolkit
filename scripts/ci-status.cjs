@@ -10,7 +10,7 @@ const data=JSON.parse(r.stdout);
 const runs=[];
 for(const x of data.workflow_runs || []) {
   const jr=cp.spawnSync(process.platform==='win32'?'curl.exe':'curl',['-q','--silent','--show-error','--max-time','25',...(proxy?['--proxy',proxy]:[]),'--url',x.jobs_url],{encoding:'utf8',windowsHide:true});
-  const jobs=jr.status===0 ? JSON.parse(jr.stdout).jobs?.map(j=>({name:j.name,status:j.status,conclusion:j.conclusion,failed:j.steps?.filter(s=>s.conclusion==='failure').map(s=>s.name)})) : undefined;
+  const jobs=jr.status===0 ? JSON.parse(jr.stdout).jobs?.map(j=>({name:j.name,status:j.status,conclusion:j.conclusion,active:j.steps?.filter(s=>s.status==='in_progress').map(s=>s.name),failed:j.steps?.filter(s=>s.conclusion==='failure').map(s=>s.name)})) : undefined;
   runs.push({id:x.id,status:x.status,conclusion:x.conclusion,url:x.html_url,jobs});
 }
 console.log(JSON.stringify({sha,runs,message:data.message}));

@@ -7,10 +7,10 @@
 先安装 [Node.js 20+ LTS](https://nodejs.org/)（含 npm/npx），系统需有 curl。在 **Windows CMD、PowerShell、Linux Bash** 中输入同一条命令，从本 GitHub 仓库下载运行：
 
 ```text
-node -e "const c=require('child_process'),p=c.spawnSync('git',['config','--get-urlmatch','http.proxy','https://github.com/'],{encoding:'utf8'}).stdout?.trim();c.execSync('npx --yes --allow-remote=root --package=https://github.com/OpenMili/OpenMili-IP-Toolkit/archive/refs/heads/main.tar.gz openmili-ip',{stdio:'inherit',env:{...process.env,...(p?{npm_config_https_proxy:p}:{})}})"
+node -e "const c=require('child_process'),p=c.spawnSync('git',['config','--get-urlmatch','http.proxy','https://github.com/'],{encoding:'utf8'}).stdout?.trim();c.execSync('npx --yes --allow-remote=root --package=https://github.com/OpenMili/OpenMili-IP-Toolkit/archive/refs/heads/main.tar.gz?openmili='+Date.now()+' openmili-ip',{stdio:'inherit',env:{...process.env,...(p?{npm_config_https_proxy:p}:{})}})"
 ```
 
-该命令通过 Node 调用系统命令行，兼容 Windows PowerShell 的脚本执行策略。无需 Git，也不需要发布到 npm；若本机已配置 Git 的 GitHub HTTP 代理，下载时会自动复用，不修改持久配置。`--allow-remote=root` 仅为本次命令允许直接指定的 GitHub 安装包，兼容限制远程包的新版 npm。命令使用 `main` 当前版本；安装包及依赖会缓存到 npm 用户缓存。
+该命令通过 Node 调用系统命令行，兼容 Windows PowerShell 的脚本执行策略。无需 Git，也不需要发布到 npm；若本机已配置 Git 的 GitHub HTTP 代理，下载时会自动复用，不修改持久配置。`--allow-remote=root` 仅为本次命令允许直接指定的 GitHub 安装包，兼容限制远程包的新版 npm。时间戳查询参数避免同一个 main 下载地址长期复用旧版 npx 缓存；依赖仍可使用 npm 缓存。
 
 1. 自动识别系统并获取本机 IPv4 / IPv6。
 2. 输入 **1**：直接开始检测。
@@ -56,10 +56,11 @@ Windows 也可双击 `run.cmd` 或使用 `run.ps1`；Linux 可用 `bash run.sh`�
 | 模块 | 实际检查与边界 |
 |---|---|
 | 出口 IP | 多个 HTTPS 服务交叉观测 IPv4/IPv6，忽略系统隐式代理；显式代理会覆盖 `NO_PROXY`。HTTP 开始/结束与浏览器开始/结束分别核验，出口变化或无法核验时不混入该 IP 评分。 |
-| IP 属性 | ipwho.is、ipapi.is、RIPE RIS 交叉核对 ASN；先按所有者名称推断，再按内置 ASN 映射复核。运营商 ASN 可能混用住宅、企业、机房，不直接认定住宅；来源冲突显示待定。 |
+| IP 属性 | RIPE RIS、Team Cymru 交叉核对 ASN/前缀，IANA 引导官方 RIR RDAP。仅有 ASN 时类型保持 UNKNOWN；按授权增强的 IP/前缀类型证据进行融合、依赖去重和冲突展示。 |
+| DNS | 系统配置/getaddrinfo、UDP/TCP/DoH/DoT、A/AAAA/CNAME/MX/TXT/PTR 及正反向回查；保留 RCODE/耗时/差异，不把 CDN 差异当污染。 |
 | 公开库风险 | 仅使用服务实际返回的 Tor、代理、VPN、滥用字段；免费服务省略字段或限流时保留未知。机房属性本身不扣分。 |
 | 三网回程 | 参考 backtrace 的北京、上海、广州、成都三网共 12 个目标；系统 tracert/traceroute 获取跳点，RIPE 验证沿途 ASN，前缀提示另标。不会仅靠 59.43 就认定 CN2 GIA。 |
-| IP 历史 | RDAP 网段注册/修改事件、当前精确宣告前缀近 90 天 BGP 起源。不会把上级网段历史、BGP 变化或注册年龄当作滥用记录。 |
+| IP 历史 | 官方 RIR RDAP 网段注册/修改事件、当前精确宣告前缀近 90 天 BGP 起源。不会把上级网段历史、BGP 变化或注册年龄当作滥用记录。 |
 | 举报历史 | 设置环境变量 `ABUSEIPDB_API_KEY` 后查询近 90 天举报。未配置、无返回或无举报不证明没有滥用历史，密钥不写入报告。 |
 | 网站实测 | 默认 35 个目标，原始 HTTP、桌面浏览器请求头和真实 Chromium 三种方式。包含 ChatGPT、Claude、Scholar、Reddit、Grok、Quora、ScienceDirect 等验证目标，各站权重可调。 |
 | 风控证据 | 区分验证码、CF 盾、地区限制、登录、429 限流、空白、JS 要求、网络错误；记录状态码、耗时、标题、可见文字片段、最终地址，异常浏览器页面截图。不会绕过验证码。 |
@@ -74,6 +75,8 @@ Windows 也可双击 `run.cmd` 或使用 `run.ps1`；Linux 可用 `bash run.sh`�
 直连 Chromium 通过临时本机回环桥固定所选 IPv4/IPv6；它只转发 TCP，不解密 TLS，退出即关闭。这样可避免浏览器优先 IPv6、HTTP 使用 IPv4 时混合两个 IP 的检测结果。
 
 ## 综合评分
+
+P1 数据源默认免 Key；`--community-sources`、`IPAPI_API_KEY`、`IPINFO_TOKEN` 按授权开启增强类型库。缓存、隐私、配额与来源许可见 [API 说明](docs/API_PROVIDERS.md)，分类规则见 [证据融合](docs/CLASSIFICATION_RULES.md)，DNS 见 [协议检测](docs/DNS.md)。
 
 | 维度 | 权重 |
 |---|---:|

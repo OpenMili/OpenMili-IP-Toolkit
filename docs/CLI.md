@@ -17,4 +17,4 @@ JSON 以 `schema_version:1.0.0`、`tool_version`、`target`、`modules`、`score
 
 退出码：0 完成（可含 UNKNOWN），2 参数/初始化错误，3 目标端口诊断失败，130 用户中断。Ctrl+C 关闭活动子进程/浏览器，尽可能保存完成部分；不能把未知数据写成成功。
 
-当前 `--language`、`--concurrency`、`--retries` 预留配置已校验；语言渲染/调度策略由后续阶段补齐。它们尚不代表对应阶段已验收。
+P1 已实现 DNS 调度 `--concurrency`、provider 有界退避 `--retries` 与 TTL/离线缓存。`--language` 的完整终端渲染由 P3 补齐，尚未验收。
