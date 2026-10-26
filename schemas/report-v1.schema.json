@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/OpenMili/OpenMili-IP-Toolkit/schemas/report-v1.schema.json",
+  "type": "object",
+  "required": ["schema_version", "tool_version", "mode", "timestamp", "target", "modules", "scores", "errors"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "tool_version": {"type": "string"},
+    "mode": {"enum": ["local", "lookup", "proxy", "agent", "port"]},
+    "timestamp": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T"},
+    "target": {
+      "type": "object", "required": ["ip", "family", "exit_verified"],
+      "properties": {"ip": {"type": ["string", "null"]}, "family": {"enum": [4, 6, null]}, "exit_ip": {"type": ["string", "null"]}, "exit_verified": {"type": "boolean"}}
+    },
+    "modules": {"type": "object", "additionalProperties": {"$ref": "#/definitions/module"}},
+    "scores": {
+      "type": "object", "required": ["overall", "coverage_percent", "model_version"],
+      "properties": {"overall": {"type": ["number", "null"], "minimum": 0, "maximum": 100}, "coverage_percent": {"type": "number", "minimum": 0, "maximum": 100}, "model_version": {"type": "string"}}
+    },
+    "errors": {"type": "array", "items": {"type": "object"}}
+  },
+  "definitions": {
+    "module": {"type": "object", "required": ["status", "code", "reason", "checked_at"], "properties": {"status": {"enum": ["success", "limited", "failure", "unknown", "skipped"]}, "code": {"type": "string"}, "reason": {"type": "string"}, "checked_at": {"type": "string"}}}
+  }
+}

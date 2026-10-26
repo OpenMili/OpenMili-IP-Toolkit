@@ -3,13 +3,35 @@
   "version": "2.0.0",
   "description": "跨平台出口 IP 质量、浏览器风控和三网回程检测",
   "private": true,
-  "bin": { "openmili-ip": "bin/openmili.js" },
-  "engines": { "node": ">=20" },
+  "bin": {
+    "openmili-ip": "bin/openmili.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "start": "node bin/openmili.js",
     "test": "node --test",
     "smoke": "node tests/smoke.js"
   },
-  "files": ["bin", "lib", "data", "domains.yaml", "run.ps1", "run.sh", "run.cmd", "README.md", "THIRD_PARTY_NOTICES.md"],
-  "dependencies": { "playwright": "1.64.1", "yaml": "2.9.1" }
+  "files": [
+    "bin",
+    "lib",
+    "data",
+    "schemas",
+    "openmili.ps1",
+    "openmili.sh",
+    "docs",
+    "domains.yaml",
+    "run.ps1",
+    "run.sh",
+    "run.cmd",
+    "README.md",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "dependencies": {
+    "ajv": "8.20.0",
+    "playwright": "1.64.1",
+    "yaml": "2.9.1"
+  }
 }

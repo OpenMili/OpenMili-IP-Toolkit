@@ -23,6 +23,17 @@ node -e "const c=require('child_process'),p=c.spawnSync('git',['config','--get-u
 
 ## 本地运行
 
+蓝图补齐进度与边界见 [开发计划](docs/DEVELOPMENT_PLAN.md)；当前新增 P0 子命令和稳定报告协议：
+
+```bash
+node bin/openmili.js lookup --ip 8.8.8.8 --json
+node bin/openmili.js port --host example.org --port 443 --tls --samples 3
+node bin/openmili.js ip --ipv6
+node bin/openmili.js doctor --offline
+```
+
+原生同语义入口：Windows `.\openmili.ps1`；Linux/macOS `sh ./openmili.sh`。`lookup` 只查指定 IP 的公开库，绝不启动网站/路由实测。`--redact` 适合分享报告，`--offline` 禁止网络查询。详情、配置、退出码与 schema 见 [CLI 协议](docs/CLI.md)。
+
 ```bash
 npm ci
 node bin/openmili.js
