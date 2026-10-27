@@ -1,56 +1,26 @@
 {
   "name": "openmili-ip-toolkit",
-  "version": "2.4.3",
-  "description": "跨平台出口 IP 质量、浏览器风控和三网回程检测",
-  "private": true,
+  "version": "3.0.0",
+  "description": "极简轻量出口 IP 质量与常用服务解锁检测工具",
+  "main": "openmili.js",
   "bin": {
-    "openmili-ip": "bin/openmili.js"
+    "openmili-ip": "openmili.js"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=18"
   },
   "scripts": {
-    "start": "node bin/openmili.js",
-    "test": "node --test",
-    "smoke": "node tests/smoke.js",
-    "build:bundle": "node scripts/build-bundle.cjs",
-    "simple-check": "node simple-ip-check.js"
+    "start": "node openmili.js"
   },
-  "files": [
-    "bin",
-    "lib",
-    "data",
-    "schemas",
-    "openmili.ps1",
-    "openmili.sh",
-    "docs",
-    "domains.yaml",
-    "run.ps1",
-    "run.sh",
-    "run.cmd",
-    "README.md",
-    "THIRD_PARTY_NOTICES.md",
-    "browser-worker",
-    "install.sh",
-    "install.ps1",
-    "uninstall.sh",
-    "uninstall.ps1",
-    "README_EN.md",
-    "CHANGELOG.md",
-    "SECURITY.md",
-    "CONTRIBUTING.md",
-    "LICENSE",
-    "simple-ip-check.js",
-    "simple-ip-check.ps1",
-    "simple-ip-check.sh"
+  "keywords": [
+    "ip-check",
+    "proxy-check",
+    "ip-quality",
+    "unblock-check",
+    "chatgpt",
+    "netflix",
+    "toolkit"
   ],
-  "dependencies": {
-    "ajv": "8.20.0",
-    "dns-packet": "5.6.1",
-    "yaml": "2.9.1"
-  },
-  "devDependencies": {
-    "playwright": "1.64.1"
-  },
+  "author": "OpenMili",
   "license": "MIT"
 }

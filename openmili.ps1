@@ -1,14 +1,36 @@
-# Pass the same CLI tokens as openmili.sh. No PowerShell named parameter translation.
+# OpenMili IP Toolkit - Windows PowerShell Launcher
+param([string]$Proxy, [switch]$Direct, [switch]$NoPause)
 $ErrorActionPreference = 'Stop'
-[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
-if (-not (Get-Command node -ErrorAction SilentlyContinue)) { throw 'Node.js 20+ is required: https://nodejs.org/' }
-& node -e 'if (parseInt(process.versions.node) < 20) process.exit(1)'
-if ($LASTEXITCODE -ne 0) { throw 'Node.js 20+ is required.' }
-if (-not (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'node_modules/yaml/package.json'))) {
-    if ($args -contains '--no-install' -or $args -contains '--offline') { throw 'Dependencies missing; offline/no-install forbids installation. Run npm ci.' }
-    Push-Location $PSScriptRoot
-    try { & npm.cmd ci --omit=dev --ignore-scripts --no-audit --no-fund | ForEach-Object { [Console]::Error.WriteLine($_) }; if ($LASTEXITCODE -ne 0) { throw 'npm ci failed' } }
-    finally { Pop-Location }
+
+$node = Get-Command node -ErrorAction SilentlyContinue
+if (-not $node) {
+    Write-Host "Node.js 18+ is required: https://nodejs.org/" -ForegroundColor Red
+    exit 1
 }
-& node (Join-Path $PSScriptRoot 'bin/openmili.js') @args
-exit $LASTEXITCODE
+
+$localScript = Join-Path $PSScriptRoot 'openmili.js'
+if (Test-Path -LiteralPath $localScript) {
+    $scriptToRun = $localScript
+} else {
+    $tempName = 'openmili-' + [guid]::NewGuid().ToString('N') + '.js'
+    $scriptToRun = Join-Path ([IO.Path]::GetTempPath()) $tempName
+    $remoteUrl = 'https://raw.githubusercontent.com/OpenMili/OpenMili-IP-Toolkit/main/openmili.js'
+    try {
+        Invoke-WebRequest -UseBasicParsing -Uri $remoteUrl -OutFile $scriptToRun -TimeoutSec 8
+    } catch {
+        $mirrorUrl = 'https://ghproxy.net/https://raw.githubusercontent.com/OpenMili/OpenMili-IP-Toolkit/main/openmili.js'
+        Invoke-WebRequest -UseBasicParsing -Uri $mirrorUrl -OutFile $scriptToRun -TimeoutSec 8
+    }
+}
+
+try {
+    $nodeArgs = @($scriptToRun)
+    if ($Direct) { $nodeArgs += '-d' }
+    elseif ($Proxy) { $nodeArgs += @('-p', $Proxy) }
+    $nodeArgs += $args
+    & $node.Source @nodeArgs
+} finally {
+    if ($scriptToRun -ne $localScript -and (Test-Path -LiteralPath $scriptToRun)) {
+        Remove-Item -LiteralPath $scriptToRun -Force -ErrorAction SilentlyContinue
+    }
+}

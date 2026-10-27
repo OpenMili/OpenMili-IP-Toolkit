@@ -1,7 +1,0 @@
-{
-  "name": "openmili-ip-browser-worker",
-  "version": "1.0.0",
-  "private": true,
-  "description": "Optional isolated browser dependency for OpenMili-IP-Toolkit",
-  "dependencies": {"playwright": "1.64.1"}
-}
