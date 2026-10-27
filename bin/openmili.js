@@ -135,7 +135,7 @@ async function main(args = process.argv.slice(2), runtime = {}) {
     else report.doctor={node:process.versions.node,curl:{available:curl.code===0,version:curl.stdout.split('\n')[0]},binding:options.sourceIP||null,offline:options.offline};
     report.finishedAt=new Date().toISOString();
     const safe=await saveReport(report,output,options);
-    if(options.json) console.log(JSON.stringify(safe)); else { log(JSON.stringify(safe.port || safe.doctor,null,2)); log(`报告: ${path.join(output,'report.html')}`); }
+    if(options.json) console.log(JSON.stringify(safe)); else { log(JSON.stringify(safe.port || safe.doctor,null,2)); if(!options.terminalOnly)log(`报告: ${path.join(output,'report.html')}`); }
     if(options.signal?.aborted) process.exitCode=EXIT.INTERRUPTED;
     else if(report.port?.status === 'failure') process.exitCode=EXIT.FAILED;
     return safe;
@@ -166,11 +166,11 @@ async function main(args = process.argv.slice(2), runtime = {}) {
     environment,command:options.command,familyExplicit:options.familyExplicit,proxy: redactProxy(options.proxy),proxyOrigin:options.proxyOrigin||'explicit-or-direct',envProxyRules:options.envProxies?{http:redactProxy(options.envProxies.http),https:redactProxy(options.envProxies.https),noProxy:options.envProxies.noProxy}:undefined, family: options.family, selectedIP: checkedIP, direct, exit, sites: [] };
   if(options.command === 'dns'){
     report.dns=await inspectDNS({...transport,publicIP:checkedIP});report.finishedAt=new Date().toISOString();
-    const safe=await saveReport(report,output,options);if(options.json)console.log(JSON.stringify(safe));else{log(`DNS: ${report.dns.reason}`);log(`报告: ${path.join(output,'report.html')}`);}return safe;
+    const safe=await saveReport(report,output,options);if(options.json)console.log(JSON.stringify(safe));else if(options.terminalOnly)console.log(require('../lib/ui').summary(safe,options));else{log(`DNS: ${report.dns.reason}`);log(`报告: ${path.join(output,'report.html')}`);}return safe;
   }
   if(options.command === 'route'){
     report.routes=await traceRoutes(options.routeTargets?options.targets:undefined,transport,log);report.finishedAt=new Date().toISOString();
-    const safe=await saveReport(report,output,options);if(options.json)console.log(JSON.stringify(safe));else{log(report.routes.note||report.routes.reason);log(`报告: ${path.join(output,'report.html')}`);}if(options.signal?.aborted)process.exitCode=EXIT.INTERRUPTED;return safe;
+    const safe=await saveReport(report,output,options);if(options.json)console.log(JSON.stringify(safe));else if(options.terminalOnly)console.log(require('../lib/ui').summary(safe,options));else{log(report.routes.note||report.routes.reason);log(`报告: ${path.join(output,'report.html')}`);}if(options.signal?.aborted)process.exitCode=EXIT.INTERRUPTED;return safe;
   }
   log('查询公开 IP 库与 ASN 归属…');
   report.database = options.lookup && options.command !== 'ip' && !options.signal?.aborted ? await lookupDatabase(checkedIP, { ...transport, abuseKey: process.env.ABUSEIPDB_API_KEY,ipapiKey:process.env.IPAPI_API_KEY,ipinfoKey:process.env.IPINFO_TOKEN }) : { status: 'untested', reason:'用户跳过或本次只检查 IP', records: [] };
@@ -188,7 +188,7 @@ async function main(args = process.argv.slice(2), runtime = {}) {
   } else report.routes = { status: 'untested', reason: '仅查询数据库', results: [] };
   log('查询网段注册事件与近 90 天 BGP 历史…');
   report.history = options.history && !options.offline && !options.signal?.aborted ? await lookupHistory(checkedIP, report.database, transport) : { status: 'untested', reason: options.offline?'离线模式':'用户跳过' };
-  log(`IP 历史: RDAP ${report.history.registration?.status || 'untested'} | BGP ${report.history.routing?.status || 'untested'}${report.history.routing?.originCount ? `，起源 ASN ${report.history.routing.originCount} 个` : ''}`);
+  log(`IP 历史: RDAP ${report.history.registration?.status==='ok'?'完成':'未取得'} | BGP ${report.history.routing?.status==='ok'?'完成':'未取得'}${report.history.routing?.originCount ? `，起源 ASN ${report.history.routing.originCount} 个` : ''}`);
   if (!options.onlyLookup) {
     let source;
     if (options.targetsUrl) {
@@ -211,7 +211,8 @@ async function main(args = process.argv.slice(2), runtime = {}) {
         const judgment = classify({...response,requestUrl:site.url,allowedHosts:site.allowed_hosts,rules:site});
         site[key] = { ...response, ...judgment }; delete site[key].body;
       }
-      log(`[${i+1}/${report.sites.length}] ${site.name}: ${site.http.label} ${site.http.status} ${site.http.duration}ms | 原始 ${site.httpPlain.label}`);
+      if(log.site)log.site(site,i+1,report.sites.length,'http');
+      else log(`[${i+1}/${report.sites.length}] ${site.name}: ${site.http.label} ${site.http.status} ${site.http.duration}ms | 原始 ${site.httpPlain.label}`);
       if (i < report.sites.length - 1) await require('node:timers/promises').setTimeout(options.minDelay + Math.random() * (options.maxDelay - options.minDelay),undefined,{signal:options.signal}).catch(()=>{});
     }
     const after = options.skipIP ? null : await discoverFamily(options.family, transport);
@@ -219,7 +220,7 @@ async function main(args = process.argv.slice(2), runtime = {}) {
     report.httpIdentity = { before: selected, after, verified, note: 'HTTP 请求固定 IP 协议；起止公网观测一致仍不能排除代理按目标分流。' };
     for (const site of report.sites) for (const key of ['http','httpPlain']) { site[key] ||= {kind:'untested',label:'未测试',reason:options.offline?'离线模式':'用户中止'}; site[key].identityVerified = verified && !site[key].proxyBypassed; }
     log(`完成 HTTP | 服务可达 ${report.sites.filter(s => s.http?.kind === 'reachable').length}/${report.sites.length}`);
-    report.browser = options.browser && report.sites.length ? await probeBrowserSites(report.sites, { ...options, expectedIP: selectedIP, evidenceDir: path.join(output,'evidence') }, log) : { status: 'untested', reason: report.sites.length?'用户跳过':'没有可用目标清单' };
+    report.browser = options.browser && report.sites.length ? await probeBrowserSites(report.sites, { ...options, expectedIP: selectedIP, evidenceDir: options.terminalOnly?undefined:path.join(output,'evidence') }, log) : { status: 'untested', reason: report.sites.length?'用户跳过':'没有可用目标清单' };
     if (!options.browser) for (const site of report.sites) site.browser = { kind: 'untested', label: '未测试', reason: '用户跳过' };
   } else report.browser = { status: 'untested', reason: '仅查询数据库' };
   report.score_model=options.scoringModel;
@@ -229,10 +230,12 @@ async function main(args = process.argv.slice(2), runtime = {}) {
   if (options.json) console.log(JSON.stringify(safe));
   else console.log(require('../lib/ui').summary(safe,options));
   if (safe.mode === 'lookup') log('查询模式：未通过所查 IP 实测，不提供实际出口综合评分');
-  else log(`已测项目参考分: ${report.score.reference ?? '未知'}/100 | 证据覆盖 ${report.score.coverage}% | ${report.score.grade}`);
-  log(`报告: ${path.join(output, 'report.html')}`);
-  log(`JSON: ${path.join(output, 'report.json')}`);
-  log(`TXT: ${path.join(output, 'report.txt')}`);
+  else if(!options.terminalOnly)log(`已测项目参考分: ${report.score.reference ?? '未知'}/100 | 证据覆盖 ${report.score.coverage}% | ${report.score.grade}`);
+  if(!options.terminalOnly){
+    log(`报告: ${path.join(output, 'report.html')}`);
+    log(`JSON: ${path.join(output, 'report.json')}`);
+    log(`TXT: ${path.join(output, 'report.txt')}`);
+  }
   if(options.signal?.aborted) process.exitCode=EXIT.INTERRUPTED;
   return safe;
 }

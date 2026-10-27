@@ -91,7 +91,7 @@ test('本地 HTTP、显式代理、Chromium 渲染和跨平台入口集成', asy
     }
     for(const [name,command,args] of entries) await t.test(`${name} 入口、缺失证据评分与 HTML/JSON`,async () => {
       const r=await run(command,args); assert.equal(r.code,0,r.stdout+r.stderr);
-      assert.match(r.stdout,/短响应: 服务可达 200/); assert.match(r.stdout,/访问受限: 访问受限 403/); assert.match(r.stdout,/服务异常: 服务异常 503/); assert.match(r.stdout,/响应为空: 响应为空 200/); assert.match(r.stdout,/服务可达 1\/4/);
+      assert.match(r.stdout,/短响应\s+通过 200/); assert.match(r.stdout,/访问受限\s+阻断 403/); assert.match(r.stdout,/服务异常\s+异常 503/); assert.match(r.stdout,/响应为空\s+空白 200/); assert.match(r.stdout,/服务可达 1\/4/);
       const report=JSON.parse(await fs.readFile(path.join(temp,'reports','latest.json'),'utf8'));
       assert.equal(report.sites.length,4); assert.equal(report.score.coverage,0); assert.equal(report.score.grade,'证据不足');
       assert.ok(report.sites.every(s => s.browser.kind==='untested'));

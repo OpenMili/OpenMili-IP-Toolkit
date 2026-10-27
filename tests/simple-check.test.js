@@ -48,10 +48,10 @@ test('两项菜单默认启用完整内核，离线真实运行生成全部报�
     const {parseArgs} = require('../bin/openmili');
     for (const proxy of ['', 'http://127.0.0.1:10808']) {
       const options = parseArgs(fullArgs(proxy, temp));
-      for (const flag of ['browser', 'routes', 'history', 'lookup', 'communitySources', 'ignoreEnvProxy', 'noPause']) assert.equal(options[flag], true, flag);
+      for (const flag of ['browser', 'routes', 'history', 'lookup', 'communitySources', 'ignoreEnvProxy', 'noPause','terminalOnly']) assert.equal(options[flag], true, flag);
       assert.equal(options.mode, proxy ? 'proxy' : 'direct');assert.equal(options.proxy, proxy);
     }
-    const result = await runFullCheck('http://127.0.0.1:10808', temp, ['--offline', '--plain']);
+    const result = await runFullCheck('http://127.0.0.1:10808', temp, ['--offline', '--plain','--save-report']);
     assert.equal(result.sites.length, 38);assert.equal(result.command, 'all');assert.equal(result.mode, 'proxy');
     assert.equal(new URL(result.proxy).port, '10808');assert.equal(result.score.coverage, 0);assert.equal(result.score.overall, null);
     assert.ok(result.dns);assert.ok(result.history);assert.ok(result.routes);assert.equal(result.browser.reason, '离线模式');
@@ -63,6 +63,18 @@ test('两项菜单默认启用完整内核，离线真实运行生成全部报�
     const text = await fs.readFile(path.join(directory, 'report.txt'), 'utf8');
     assert.equal(text.charCodeAt(0), 0xFEFF);assert.match(text, /公开库风险/);assert.match(text, /IP 历史/);assert.match(text, /真实浏览器/);assert.match(text, /证据覆盖 0%/);
   } finally { await fs.rm(temp, {recursive: true, force: true}); }
+});
+
+test('简单入口默认终端展示全部结果，不创建报告目录或截图',async()=>{
+  const temp=await fs.mkdtemp(path.join(os.tmpdir(),'openmili-terminal-only-'));
+  try{
+    const output=path.join(temp,'must-not-exist');
+    const report=await runFullCheck('http://127.0.0.1:10808',output,['--offline','--plain']);
+    assert.equal(report.sites.length,38);assert.equal(report.score.coverage,0);
+    assert.equal(require('../lib/schema').validateReport(report),true);
+    await assert.rejects(fs.stat(output),{code:'ENOENT'});
+    assert.deepEqual(await fs.readdir(temp),[]);
+  }finally{await fs.rm(temp,{recursive:true,force:true});}
 });
 
 test('远程单文件入口实际解包临时核心，禁用安装脚本并在完成或异常时清理', async () => {

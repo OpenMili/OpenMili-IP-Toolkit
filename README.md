@@ -1,6 +1,6 @@
 # OpenMili IP Toolkit
 
-检测**运行本机或指定代理的真实出口 IP**：公开库与 ASN、三网回程、IP 历史、网站 HTTP 和真实 Chromium 风控检测，最后生成中文 HTML / JSON 报告。
+检测**运行本机或指定代理的真实出口 IP**：公开库与 ASN、三网回程、IP 历史、网站 HTTP 和真实 Chromium 风控检测，全部结果直接在终端排版展示。
 
 ## 一键脚本（推荐）
 
@@ -26,7 +26,9 @@ curl -fsSL https://raw.githubusercontent.com/OpenMili/OpenMili-IP-Toolkit/main/s
 
 远程运行时自动在临时目录获取完整脚本和核心依赖，完成后清理，不注册系统服务。真实浏览器优先使用 Windows 本机 Edge/Chrome；首次按需下载独立 Playwright worker，缺少浏览器时下载 Chromium，缓存留在用户目录以便复用。浏览器不可用时明确显示未测试，其他模块继续。
 
-终端逐项显示进度与中文结果，HTML、TXT、JSON、Markdown 报告保存到 `~/openmili-reports/<时间>/`（Windows：`C:\Users\你的用户名\openmili-reports\`），结束显示绝对路径。HTML 是本地报告文件。Windows 成功或失败均等待回车，保留当前 PowerShell。自动运行可用 `-NoPause`（PowerShell入口）或 `--no-pause`（Node入口）。
+默认不生成报告文件或截图。终端分区展示 IP/ASN、风险、DNS/PTR、三网路径、历史、38 站三种方式对照表、异常原因和各维度评分。**通过绿色、验证码/浏览器验证黄色、阻断/失败红色、未知/跳过灰色**；同一行对比原始 HTTP、桌面 HTTP 与真实浏览器，含状态码和耗时。中文列宽自动对齐，窄屏改为逐站多行，`NO_COLOR` / `--plain` 使用无色文字。
+
+Windows 结束仅提示“按回车键结束”，保留当前 PowerShell。自动运行可用 `-NoPause`（PowerShell入口）或 `--no-pause`（Node入口）。需要额外保存文件时，本地 Node 入口加 `--save-report`，或显式指定 `--output 目录`；此时另存 HTML/TXT/JSON/Markdown，不影响终端完整展示。
 
 本地同样使用简单菜单，支持完整内核选项：
 

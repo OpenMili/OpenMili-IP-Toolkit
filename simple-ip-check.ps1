@@ -14,7 +14,7 @@ try {
 } finally {
     Remove-Item -LiteralPath $file -Force -ErrorAction SilentlyContinue
     if(-not $NoPause -and [Environment]::UserInteractive -and -not [Console]::IsInputRedirected){
-        [void](Read-Host ('Press Enter to finish. Reports: '+(Join-Path ([Environment]::GetFolderPath('UserProfile')) 'openmili-reports')))
+        [void](Read-Host (-join [char[]](0x6309,0x56de,0x8f66,0x952e,0x7ed3,0x675f,0x2026)))
     }
 }
 # Do not call exit: this script also runs in the user's existing shell via irm | iex.

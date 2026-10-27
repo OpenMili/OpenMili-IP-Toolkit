@@ -56,12 +56,12 @@ async function main() {
     }
     for (const [name, command, args] of checks) {
       const output = await run(command, args);
-      assert.match(output, /短响应: 服务可达 200/);
-      assert.match(output, /访问受限: 访问受限 403/);
-      assert.match(output, /服务异常: 服务异常 503/);
-      assert.match(output, /响应为空: 响应为空 200/);
+      assert.match(output, /短响应\s+通过 200/);
+      assert.match(output, /访问受限\s+阻断 403/);
+      assert.match(output, /服务异常\s+异常 503/);
+      assert.match(output, /响应为空\s+空白 200/);
       assert.match(output, /服务可达 1\/4/);
-      assert.match(output, /\[4\/4\]/);
+      assert.match(output, /04 响应为空/);
       process.stdout.write(`${name}: YAML + HTTP PASS\n`);
     }
     fs.writeFileSync(targets, 'domains:\n  - name: 缺少URL\n');
