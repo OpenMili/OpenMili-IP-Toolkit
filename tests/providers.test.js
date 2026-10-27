@@ -35,9 +35,10 @@ test('P1 ASN MOAS 与官方 RDAP 必须匹配查询地址',()=>{
   assert.throws(()=>rdapEndpoint(bootstrap,'1.1.1.1'));
   assert.throws(()=>normalizeRDAP({objectClassName:'ip network',startAddress:'1.1.1.0',endAddress:'1.1.1.255'},'8.8.8.8','https://rdap.example/'));
 });
-test('P1 分类融合：弱 ASN 不定型、同源不双算、冲突/过期与独立风险',()=>{
+test('P1 分类融合：ASN 所有者给出低置信度倾向，强证据仍需独立来源',()=>{
   const checked_at=new Date().toISOString(),base={status:'ok',network_type:'residential',granularity:'prefix',checked_at,source_updated_at:checked_at,reliability:.9};
-  assert.equal(fuseEvidence([{status:'ok',asn:14061,owner:'DigitalOcean'}]).type,'UNKNOWN');
+  assert.equal(fuseEvidence([{status:'ok',asn:14061,owner:'DigitalOcean'}]).type,'DATACENTER');
+  assert.equal(fuseEvidence([{status:'ok',asn:14061,owner:'DigitalOcean'}]).confidence,30);
   assert.equal(fuseEvidence([{...base,source:'a',independence_group:'same'},{...base,source:'b',independence_group:'same'}]).type,'UNKNOWN');
   const good=fuseEvidence([{...base,source:'a',independence_group:'a'},{...base,source:'b',independence_group:'b'}]);assert.equal(good.type,'RESIDENTIAL');assert.equal(good.confidence,90);
   const conflict=fuseEvidence([{...base,source:'a',independence_group:'a'},{...base,source:'b',independence_group:'b',network_type:'hosting'}]);assert.equal(conflict.type,'SUSPECTED_RESIDENTIAL');assert.equal(conflict.conflict,true);assert.equal(conflict.opposing.length,1);
@@ -47,7 +48,7 @@ test('P1 分类融合：弱 ASN 不定型、同源不双算、冲突/过期与�
 test('IP 类型来源兼容字符串归属，省略风险字段时保留未知',()=>{
   const string=normalizeIPAPI({ip:'8.8.8.8',asn:'AS15169 Google LLC',company:'Google LLC'},'8.8.8.8');
   assert.equal(string.asn,15169);assert.equal(string.owner,'Google LLC');assert.equal(string.company,'Google LLC');
-  assert.deepEqual(string.flags,{});assert.equal(string.network_type,null);assert.equal(fuseEvidence([string]).type,'UNKNOWN');
+  assert.deepEqual(string.flags,{});assert.equal(string.network_type,null);assert.equal(fuseEvidence([string]).type,'DATACENTER');
   const structured=normalizeIPAPI({ip:'8.8.8.8',asn:{asn:15169,org:'Google LLC'},company:{name:'Google LLC',type:'hosting'},is_proxy:false,is_tor:true},'8.8.8.8');
   assert.equal(structured.owner,'Google LLC');assert.equal(structured.network_type,'hosting');assert.deepEqual(structured.flags,{is_proxy:false,is_tor:true});
 });

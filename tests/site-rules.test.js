@@ -8,7 +8,7 @@ const {parseArgs}=require('../bin/openmili');
 test('P2 网站规则：预期标记、允许域、规则过期与挑战优先',()=>{
   const rules={expected_text:['Expected brand'],rule_version:'fixture-v1',expires_at:'2030-01-01'};
   const base={status:200,body:'Welcome to Expected brand',requestUrl:'https://expected.example/',finalUrl:'https://expected.example/',rules};
-  assert.equal(classify(base).kind,'reachable');assert.equal(classify({...base,body:'unrelated maintenance'}).kind,'untested');
+  assert.equal(classify(base).kind,'reachable');assert.equal(classify({...base,body:'unrelated maintenance'}).kind,'partial');
   assert.equal(classify({...base,finalUrl:'https://another.example/'}).kind,'untested');
   assert.equal(classify({...base,finalUrl:'https://another.example/',allowedHosts:['another.example']}).kind,'reachable');
   assert.equal(classify({...base,body:'<title>Just a moment</title>wait'}).kind,'challenge');

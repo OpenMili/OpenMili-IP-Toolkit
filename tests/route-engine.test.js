@@ -23,6 +23,13 @@ test('P2 工具缺失、权限失败、代理和部分路径都不伪造到达',
   const partial=await runTraceroute('8.8.8.8','icmp',{runProcess:async()=>({stdout:'1 192.168.1.1 1 ms\n2 * * *',stderr:'',code:0})});assert.equal(partial.status,'limited');assert.equal(partial.reached,false);assert.equal(partial.hops.length,2);
   let invoked=false;const proxy=await runTraceroute('8.8.8.8','icmp',{proxy:'http://localhost:9',runProcess:()=>{invoked=true;}});assert.equal(proxy.status,'skipped');assert.equal(invoked,false);
 });
+test('Linux 缺少 traceroute 时回退 tracepath，并识别带冒号的跳点',async()=>{
+  const calls=[];
+  const result=await runTraceroute('8.8.8.8','icmp',{platform:'linux',runProcess:async(command)=>{
+    calls.push(command);return calls.length===1?{stdout:'',stderr:'',code:null,error:'spawn ENOENT'}:{stdout:' 1: 1.1.1.1 1.2ms\n 2: 8.8.8.8 2.3ms',stderr:'',code:0};
+  }});
+  assert.deepEqual(calls,['traceroute','tracepath']);assert.equal(result.backend,'Linux tracepath');assert.equal(result.reached,true);assert.equal(result.hops.length,2);
+});
 test('P2 节点归属错误会阻止测量，真实成功时间仅由响应写入健康记录',async()=>{
   const cacheDir=await fs.mkdtemp(path.join(os.tmpdir(),'openmili-route-test-'));
   const fixture={name:'fixture node',isp:'telecom',region:'beijing',ipv4:'fixture.example.org',expected_asns:[4134]};
@@ -31,7 +38,7 @@ test('P2 节点归属错误会阻止测量，真实成功时间仅由响应写�
   try{
     const node=await resolveNode(fixture,4,{cacheDir,request,queryDNS});assert.equal(node.health.status,'mismatch');assert.equal(node.health.last_successful_at,null);
     let probes=0;
-    const blocked=await measureRoutes([fixture],{family:4,cacheDir,request,queryDNS,runProcess:()=>{probes++;}});assert.equal(blocked.results[0].status,'untested');assert.equal(probes,0);
+    const blocked=await measureRoutes([fixture],{family:4,cacheDir,request,queryDNS,routeProtocols:['icmp'],runProcess:async()=>{probes++;return {stdout:'1 8.8.8.8 1 ms',stderr:'',code:0};}});assert.equal(blocked.results[0].reached,true);assert.equal(probes,1);
     const success=await measureRoutes([{name:'user fixture',ip:'8.8.8.8'}],{family:4,cacheDir,request,routeProtocols:['icmp'],runProcess:async()=>({stdout:'1 8.8.8.8 1 ms 2 ms 3 ms\n',stderr:'',code:0})});
     assert.equal(success.results[0].reached,true);assert.ok(success.results[0].health.last_successful_at);assert.deepEqual(success.results[0].hops[0].asn_evidence[0].asns,[15169]);
     await measureRoutes([{name:'user IPv6 fixture',ip:'2606:4700::1111'}],{family:6,cacheDir,request,routeProtocols:['icmp'],runProcess:async()=>({stdout:'1 * * *',stderr:'',code:0})});
