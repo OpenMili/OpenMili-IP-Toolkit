@@ -52,6 +52,14 @@ test('仅 HTTP 时显示两列与实际原因，不重复显示真实浏览器�
   assert.match(advanced,/真实浏览器/);assert.match(advanced,/浏览器说明\s*: 用户跳过/);
 });
 
+test('紧凑终端只保留结论、网站状态和评分',()=>{
+  const report=fixture();for(const site of report.sites)site.browser={kind:'untested',reason:'用户跳过'};
+  const text=renderReport(report,{compact:true,plain:true,width:100});
+  assert.match(text,/公网与属性/);assert.match(text,/DNS \/ 三网 \/ 历史/);assert.match(text,/网站检测 · 2 个/);assert.match(text,/参考分 72\.7\/100/);
+  assert.doesNotMatch(text,/检测时间|来源查询时间|验证、阻断与未测原因|完成验证码|系统路由不能穿过/);
+  assert.doesNotMatch(text,/真实浏览器/);
+});
+
 test('纯文本、NO_COLOR 与外部终端控制符处理，不用跳过数冒充 DNS 失败',()=>{
   const report=fixture();report.sites[0].browser.evidence='blocked\x1b[31m INJECTED\x1b[0m';
   const plain=renderReport(report,{plain:true,color:true,width:100});assert.doesNotMatch(plain,/\x1b/);

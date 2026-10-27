@@ -54,10 +54,8 @@ function detectExit(family, proxy = '', request = curl) {
 }
 
 function showExits(proxy = '', label = '当前公网') {
-  console.log(`正在通过 curl -4 查询${label} IPv4…`);
   const ipv4 = detectExit(4, proxy);
   console.log(`${label} IPv4：${ipv4.ip || ipv4.reason}`);
-  console.log(`正在通过 curl -6 查询${label} IPv6…`);
   const ipv6 = detectExit(6, proxy);
   console.log(`${label} IPv6：${ipv6.ip || ipv6.reason}`);
   return { ipv4, ipv6 };
@@ -91,7 +89,7 @@ function npmCommand(args) {
 
 async function prepareCore({proxy = '', signal, sourceRoot = __dirname,
   packageUrl = `https://codeload.github.com/OpenMili/OpenMili-IP-Toolkit/tar.gz/refs/heads/main?openmili=${Date.now()}`,
-  log = console.log, offline = false} = {}) {
+  log = () => {}, offline = false} = {}) {
   if (fs.existsSync(path.join(sourceRoot, 'bin/openmili.js'))) {
     return {main: require(path.join(sourceRoot, 'bin/openmili.js')).main, close: async () => {}};
   }
@@ -146,7 +144,7 @@ async function main(args = process.argv.slice(2), runtime = {}) {
     fs.mkdirSync(directory, {recursive:true});
     fs.accessSync(directory, fs.constants.W_OK);
   }
-  if (!extra.includes('--offline')) showExits('', '当前公网（直连）');
+  if (!extra.includes('--offline')) showExits('', '直连');
   console.log('\n[1] 开始测试\n[2] 自定义端口\n');
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   let proxy = '';
@@ -160,8 +158,6 @@ async function main(args = process.argv.slice(2), runtime = {}) {
     console.log(`\n开始检测（${safeText(proxy) || '直连'}）…`);
     if(extra.includes('--save-report'))console.log(`同时保存报告：${directory}`);
   } finally { rl.close(); }
-  console.log('检测内容：双栈出口、公开库/ASN/风险、DNS、三网路径、IP 历史、全部网站普通 HTTP / 浏览器模拟标头、综合评分。');
-  if (proxy) console.log('代理模式：三网路径无法穿过 HTTP/SOCKS 代理；需要回程结果，请在被测服务器本机运行。');
   return runFullCheck(proxy, directory, extra, runtime);
 }
 

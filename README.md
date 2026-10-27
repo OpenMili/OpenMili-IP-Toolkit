@@ -26,7 +26,7 @@ curl -fsSL https://raw.githubusercontent.com/OpenMili/OpenMili-IP-Toolkit/main/s
 
 远程运行时自动在临时目录获取完整脚本和核心依赖，完成后清理，不注册系统服务。简单入口不启动 Edge/Chrome/Chromium，不下载 Playwright 或浏览器。
 
-默认不生成报告文件或截图。终端分区展示 IP/ASN、风险、DNS/PTR、三网路径、历史、38 站两列对照表、异常原因和各维度评分。**通过绿色、验证码/浏览器验证黄色、阻断/失败红色、未知/跳过灰色**；同一行对比“普通 HTTP / 浏览器标头”，含状态码和耗时。中文列宽自动对齐，窄屏改为逐站多行，`NO_COLOR` / `--plain` 使用无色文字。
+默认不生成报告文件或截图。终端只展示 IP/ASN、风险、DNS/三网/历史汇总、38 站两列状态表和评分；详细逐条证据仅在报告模式查看。**通过绿色、验证码/浏览器验证黄色、阻断/失败红色、未知/跳过灰色**；同一行对比“普通 HTTP / 浏览器标头”，保留状态码。中文列宽自动对齐，窄屏改为逐站多行，`NO_COLOR` / `--plain` 使用无色文字。
 
 Windows 结束仅提示“按回车键结束”，保留当前 PowerShell。自动运行可用 `-NoPause`（PowerShell入口）或 `--no-pause`（Node入口）。需要额外保存文件时，本地 Node 入口加 `--save-report`，或显式指定 `--output 目录`；此时另存 HTML/TXT/JSON/Markdown，不影响终端完整展示。
 
