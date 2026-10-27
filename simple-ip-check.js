@@ -70,6 +70,16 @@ function detectExit(family, proxy = '', request = curl) {
   return { ip: null, status: 'unknown', family, method: `curl -${family}`, reason: `未获取 IPv${family} 公网出口；可能未启用、代理不支持该族或回显服务不可达`, observations };
 }
 
+function showExits(proxy = '', label = '当前公网') {
+  console.log(`正在通过 curl -4 查询${label} IPv4…`);
+  const ipv4 = detectExit(4, proxy);
+  console.log(`${label} IPv4：${ipv4.ip || ipv4.reason}`);
+  console.log(`正在通过 curl -6 查询${label} IPv6…`);
+  const ipv6 = detectExit(6, proxy);
+  console.log(`${label} IPv6：${ipv6.ip || ipv6.reason}`);
+  return { ipv4, ipv6 };
+}
+
 function normalizeProxy(value) {
   if (/^\d+$/.test(value)) {
     if (Number(value) < 1 || Number(value) > 65535) throw new Error('代理端口必须为 1–65535');
@@ -99,29 +109,26 @@ function saveReport(report, directory) {
 }
 
 async function main() {
-  console.log(`OpenMili IP 简易检测 | ${os.platform()} ${os.arch()}`);
+  console.log(`\nOpenMili-IP-Toolkit · IP 质量检测脚本\nGitHub：https://github.com/OpenMili/OpenMili-IP-Toolkit\n系统：${os.platform()} ${os.arch()}\n`);
   const outputIndex = process.argv.indexOf('--output');
   if (outputIndex !== -1 && (!process.argv[outputIndex + 1] || process.argv[outputIndex + 1].startsWith('--'))) throw new Error('--output 需要目录');
   const directory = path.resolve(outputIndex !== -1 ? process.argv[outputIndex + 1] : path.join(os.homedir(), 'openmili-reports'));
   // 在发出网络请求前确认可保存报告，避免运行很久后才发现无写入权限。
   fs.mkdirSync(directory, { recursive: true });
   fs.accessSync(directory, fs.constants.W_OK);
+  const current = showExits('', '当前公网（直连）');
+  console.log('\n[1] 开始测试\n[2] 自定义端口\n');
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   try {
-    const choice = await ask(rl, '输入 1 直连；输入 2 使用代理端口 [1]：', '1');
+    const choice = await ask(rl, '请选择 [1]：', '1');
     let proxy = '';
     if (choice === '2') {
-      const value = await ask(rl, '输入端口或代理地址 [7890]：', '7890');
+      const value = await ask(rl, '输入代理端口或完整地址 [7890]：', '7890');
       proxy = normalizeProxy(value);
     }
     if (choice !== '1' && choice !== '2') throw new Error('只能输入 1 或 2');
     console.log(`开始检测（${safeText(proxy) || '直连'}）...\n报告保存目录：${directory}`);
-    console.log('通过 curl -4 查询公网 IPv4…');
-    const ipv4 = detectExit(4, proxy);
-    console.log(`公网 IPv4：${ipv4.ip || ipv4.reason}`);
-    console.log('通过 curl -6 查询公网 IPv6…');
-    const ipv6 = detectExit(6, proxy);
-    console.log(`公网 IPv6：${ipv6.ip || ipv6.reason}`);
+    const { ipv4, ipv6 } = proxy ? showExits(proxy, '代理出口') : current;
     const family = ipv4.ip ? 4 : ipv6.ip ? 6 : 4, ip = family === 4 ? ipv4.ip : ipv6.ip;
     const info = ip ? curl(`https://ipinfo.io/${encodeURIComponent(ip)}/json`, proxy, family) : { status: 0, body: '' };
     let identity = {};
