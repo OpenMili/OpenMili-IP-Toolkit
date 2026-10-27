@@ -1,6 +1,6 @@
 # OpenMili IP Toolkit
 
-检测**运行本机或指定代理的真实出口 IP**：公开库与 ASN、三网回程、IP 历史、网站 HTTP 和真实 Chromium 风控检测，全部结果直接在终端排版展示。
+检测**运行本机或指定代理的真实出口 IP**：公开库与 ASN、三网回程、IP 历史、网站普通 HTTP / 浏览器模拟标头检测，全部结果直接在终端排版展示。
 
 ## 一键脚本（推荐）
 
@@ -20,13 +20,13 @@ curl -fsSL https://raw.githubusercontent.com/OpenMili/OpenMili-IP-Toolkit/main/s
 
 启动页显示脚本名称、GitHub 地址、系统和当前直连公网 IPv4/IPv6。输入 `1` 开始；输入 `2` 自定义代理端口（默认 7890，支持 HTTP/SOCKS 完整地址）。IPv4/IPv6 使用 `curl -4`、`curl -6` 和各自专属的公网回显域名，避免代理远端解析优先 IPv6 导致漏报 IPv4；不使用网关或内网地址冒充公网出口。
 
-默认依次检测：公开库/ASN 交叉核验、IP 属性与风险、DNS/PTR、三网路径、注册与近 90 天 BGP 历史、全部 38 个网站的原始 HTTP/桌面请求头/真实浏览器，以及五维评分。启用公开社区来源 ipapi.is；增强举报来源需要 `ABUSEIPDB_API_KEY`，缺少密钥或证据显示未知。ASN/所有者不能单独证明住宅，网站首页可访问也不能保证注册、播放或绝对安全。
+默认依次检测：公开库/ASN 交叉核验、IP 属性与风险、DNS/PTR、三网路径、注册与近 90 天 BGP 历史、全部 38 个网站的普通 HTTP / 浏览器模拟标头，以及五维评分。网站两次请求均由 curl 发送，模拟标头包含桌面 Chrome User-Agent、Accept、Accept-Language、Sec-Fetch 等，不执行 JavaScript。启用公开社区来源 ipapi.is；增强举报来源需要 `ABUSEIPDB_API_KEY`，缺少密钥或证据显示未知。ASN/所有者不能单独证明住宅，网站首页可访问也不能保证注册、播放或绝对安全。
 
 **Windows 无需换 Linux。** 两者使用同一个检测内核；Windows 的路由使用原生 `tracert`（ICMP），Linux 安装 `traceroute` 后可按权限测 ICMP/TCP/UDP。**HTTP/SOCKS 代理无法做远端三网回程**，此项说明原因后跳过；测 VPS 回程需要在该 VPS 本机运行。
 
-远程运行时自动在临时目录获取完整脚本和核心依赖，完成后清理，不注册系统服务。真实浏览器优先使用 Windows 本机 Edge/Chrome；首次按需下载独立 Playwright worker，缺少浏览器时下载 Chromium，缓存留在用户目录以便复用。浏览器不可用时明确显示未测试，其他模块继续。
+远程运行时自动在临时目录获取完整脚本和核心依赖，完成后清理，不注册系统服务。简单入口不启动 Edge/Chrome/Chromium，不下载 Playwright 或浏览器。
 
-默认不生成报告文件或截图。终端分区展示 IP/ASN、风险、DNS/PTR、三网路径、历史、38 站三种方式对照表、异常原因和各维度评分。**通过绿色、验证码/浏览器验证黄色、阻断/失败红色、未知/跳过灰色**；同一行对比原始 HTTP、桌面 HTTP 与真实浏览器，含状态码和耗时。中文列宽自动对齐，窄屏改为逐站多行，`NO_COLOR` / `--plain` 使用无色文字。
+默认不生成报告文件或截图。终端分区展示 IP/ASN、风险、DNS/PTR、三网路径、历史、38 站两列对照表、异常原因和各维度评分。**通过绿色、验证码/浏览器验证黄色、阻断/失败红色、未知/跳过灰色**；同一行对比“普通 HTTP / 浏览器标头”，含状态码和耗时。中文列宽自动对齐，窄屏改为逐站多行，`NO_COLOR` / `--plain` 使用无色文字。
 
 Windows 结束仅提示“按回车键结束”，保留当前 PowerShell。自动运行可用 `-NoPause`（PowerShell入口）或 `--no-pause`（Node入口）。需要额外保存文件时，本地 Node 入口加 `--save-report`，或显式指定 `--output 目录`；此时另存 HTML/TXT/JSON/Markdown，不影响终端完整展示。
 

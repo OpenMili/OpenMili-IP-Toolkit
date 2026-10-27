@@ -48,20 +48,22 @@ test('两项菜单默认启用完整内核，离线真实运行生成全部报�
     const {parseArgs} = require('../bin/openmili');
     for (const proxy of ['', 'http://127.0.0.1:10808']) {
       const options = parseArgs(fullArgs(proxy, temp));
-      for (const flag of ['browser', 'routes', 'history', 'lookup', 'communitySources', 'ignoreEnvProxy', 'noPause','terminalOnly']) assert.equal(options[flag], true, flag);
+      for (const flag of ['routes', 'history', 'lookup', 'communitySources', 'ignoreEnvProxy', 'noPause','terminalOnly','noInstall']) assert.equal(options[flag], true, flag);
+      assert.equal(options.browser,false);assert.equal(options.installBrowser,false);
+      assert.equal(parseArgs(fullArgs(proxy,temp,['--browser'])).browser,false);
       assert.equal(options.mode, proxy ? 'proxy' : 'direct');assert.equal(options.proxy, proxy);
     }
     const result = await runFullCheck('http://127.0.0.1:10808', temp, ['--offline', '--plain','--save-report']);
     assert.equal(result.sites.length, 38);assert.equal(result.command, 'all');assert.equal(result.mode, 'proxy');
     assert.equal(new URL(result.proxy).port, '10808');assert.equal(result.score.coverage, 0);assert.equal(result.score.overall, null);
-    assert.ok(result.dns);assert.ok(result.history);assert.ok(result.routes);assert.equal(result.browser.reason, '离线模式');
+    assert.ok(result.dns);assert.ok(result.history);assert.ok(result.routes);assert.equal(result.browser.reason, '用户跳过');
     assert.equal(result.modules.reputation.status,'unknown');assert.match(result.modules.reputation.reason,/没有有效公网出口/);
     assert.ok(result.sites.every(site => site.http.kind === 'untested' && site.httpPlain.kind === 'untested' && site.browser.kind === 'untested'));
     const reports = (await fs.readdir(temp)).filter(name => name !== 'latest.json');assert.equal(reports.length, 1);
     const directory = path.join(temp, reports[0]);
     for (const ext of ['txt','json','html','md','ansi']) assert.ok((await fs.stat(path.join(directory, `report.${ext}`))).size > 0);
     const text = await fs.readFile(path.join(directory, 'report.txt'), 'utf8');
-    assert.equal(text.charCodeAt(0), 0xFEFF);assert.match(text, /公开库风险/);assert.match(text, /IP 历史/);assert.match(text, /真实浏览器/);assert.match(text, /证据覆盖 0%/);
+    assert.equal(text.charCodeAt(0), 0xFEFF);assert.match(text, /公开库风险/);assert.match(text, /IP 历史/);assert.match(text, /浏览器标头/);assert.doesNotMatch(text,/真实浏览器/);assert.match(text, /证据覆盖 0%/);
   } finally { await fs.rm(temp, {recursive: true, force: true}); }
 });
 
@@ -75,6 +77,32 @@ test('简单入口默认终端展示全部结果，不创建报告目录或截�
     await assert.rejects(fs.stat(output),{code:'ENOENT'});
     assert.deepEqual(await fs.readdir(temp),[]);
   }finally{await fs.rm(temp,{recursive:true,force:true});}
+});
+
+test('简单入口实际发送普通与模拟标头两次 curl 请求，不执行页面 JavaScript',async()=>{
+  const temp=await fs.mkdtemp(path.join(os.tmpdir(),'openmili-header-check-')),received=[];
+  const server=http.createServer((req,res)=>{
+    received.push({url:req.url,headers:req.headers});
+    res.setHeader('Content-Type','text/html; charset=utf-8');
+    res.end(req.url==='/js'?'<title>Loading</title><main>Enable JavaScript</main><script>fetch("/executed")</script>':'<title>Header fixture</title><main>Welcome</main>');
+  });
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  try{
+    const base=`http://127.0.0.1:${server.address().port}`,targets=path.join(temp,'targets.yaml');
+    await fs.writeFile(targets,`domains:\n  - name: Headers\n    url: ${base}/headers\n  - name: JavaScript\n    url: ${base}/js\n`);
+    const report=await runFullCheck('',path.join(temp,'unused'),['--urls',targets,'--skip-ip','--no-lookup','--no-dns','--no-routes','--no-history','--plain','--min-delay','0','--max-delay','0']);
+    assert.equal(received.length,4);assert.deepEqual(received.map(r=>r.url),['/headers','/headers','/js','/js']);
+    for(let i=0;i<received.length;i+=2){
+      const plain=received[i].headers,browser=received[i+1].headers;
+      assert.match(plain['user-agent'],/^curl\//);assert.equal(plain['sec-fetch-mode'],undefined);
+      assert.match(browser['user-agent'],/Mozilla\/5\.0.*Chrome\//);assert.match(browser.accept,/text\/html,application\/xhtml\+xml/);
+      assert.match(browser['accept-language'],/en-US/);assert.equal(browser['upgrade-insecure-requests'],'1');
+      assert.equal(browser['sec-fetch-mode'],'navigate');assert.equal(browser['sec-fetch-dest'],'document');
+    }
+    assert.equal(report.sites[0].http.kind,'reachable');assert.equal(report.sites[1].http.kind,'js-required');
+    assert.ok(report.sites.every(site=>site.browser.kind==='untested'));assert.equal(report.browser.status,'untested');
+    await assert.rejects(fs.stat(path.join(temp,'unused')),{code:'ENOENT'});
+  }finally{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));await fs.rm(temp,{recursive:true,force:true});}
 });
 
 test('远程单文件入口实际解包临时核心，禁用安装脚本并在完成或异常时清理', async () => {
@@ -95,7 +123,7 @@ test('远程单文件入口实际解包临时核心，禁用安装脚本并在�
     const packageUrl = path.join(temp, packages[0].filename), output = path.join(temp,'received-root');
     const bootstrap = {sourceRoot:temp, packageUrl, log:()=>{}};
     const result = await runFullCheck('socks5h://127.0.0.1:10808', output, [], {bootstrap});
-    assert.ok(result.args.includes('--browser'));assert.ok(result.args.includes('--community-sources'));
+    assert.ok(!result.args.includes('--browser'));assert.ok(result.args.includes('--no-browser'));assert.ok(result.args.includes('--no-install'));assert.ok(result.args.includes('--community-sources'));
     assert.equal(result.args[result.args.indexOf('--proxy')+1], 'socks5h://127.0.0.1:10808');
     await assert.rejects(fs.stat(result.root), {code:'ENOENT'});
     await assert.rejects(runFullCheck('',output,['--fixture-fail'],{bootstrap}), /fixture failure/);

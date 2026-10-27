@@ -207,7 +207,7 @@ async function main(args = process.argv.slice(2), runtime = {}) {
       if (options.signal?.aborted || options.offline) break;
       const site = report.sites[i];
       for (const [key, userAgent] of [['httpPlain','curl/8 OpenMili-IP-Toolkit/2.0'], ['http',undefined]]) {
-        const response = await request(site.url, { ...transport, timeout:site.timeout?site.timeout*1000:transport.timeout,userAgent });
+        const response = await request(site.url, { ...transport, timeout:site.timeout?site.timeout*1000:transport.timeout,userAgent,browserHeaders:key==='http' });
         const judgment = classify({...response,requestUrl:site.url,allowedHosts:site.allowed_hosts,rules:site});
         site[key] = { ...response, ...judgment }; delete site[key].body;
       }

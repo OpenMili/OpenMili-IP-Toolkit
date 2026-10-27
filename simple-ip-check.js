@@ -123,7 +123,8 @@ async function prepareCore({proxy = '', signal, sourceRoot = __dirname,
 }
 
 function fullArgs(proxy, directory, extra = []) {
-  return ['all', '--terminal', '--browser', '--community-sources', '--no-pause', '--ignore-env-proxy', ...extra,
+  return ['all', '--terminal', '--community-sources', '--no-pause', '--ignore-env-proxy', ...extra,
+    '--no-browser', '--no-install',
     '--output', directory, '--mode', proxy ? 'proxy' : 'direct', ...(proxy ? ['--proxy', proxy] : [])];
 }
 
@@ -159,7 +160,7 @@ async function main(args = process.argv.slice(2), runtime = {}) {
     console.log(`\n开始检测（${safeText(proxy) || '直连'}）…`);
     if(extra.includes('--save-report'))console.log(`同时保存报告：${directory}`);
   } finally { rl.close(); }
-  console.log('检测内容：双栈出口、公开库/ASN/风险、DNS、三网路径、IP 历史、全部网站 HTTP 与真实浏览器、综合评分。');
+  console.log('检测内容：双栈出口、公开库/ASN/风险、DNS、三网路径、IP 历史、全部网站普通 HTTP / 浏览器模拟标头、综合评分。');
   if (proxy) console.log('代理模式：三网路径无法穿过 HTTP/SOCKS 代理；需要回程结果，请在被测服务器本机运行。');
   return runFullCheck(proxy, directory, extra, runtime);
 }

@@ -39,6 +39,19 @@ test('中文、ANSI 与窄屏对齐，所有网站和证据在终端完整保留
   }
 });
 
+test('仅 HTTP 时显示两列与实际原因，不重复显示真实浏览器未测；保留高级三列',()=>{
+  const report=fixture();report.browser={status:'untested',reason:'用户跳过'};
+  for(const site of report.sites)site.browser={kind:'untested',reason:'用户跳过'};
+  for(const width of [32,48,58,73,80,100,132]){
+    const text=renderReport(report,{width,plain:true});
+    assert.match(text,/普通 HTTP/);assert.match(text,/浏览器标头/);assert.doesNotMatch(text,/真实浏览器|浏览器说明|用户跳过|三种方式/);
+    const compact=text.replace(/\s+/g,'');assert.match(compact,/不执行JavaScript/);assert.match(compact,/完成验证码/);
+    for(const line of text.split('\n'))assert.ok(widthOf(line)<=width,`width=${width}, line=${JSON.stringify(line)}`);
+  }
+  const advanced=renderReport(report,{browser:true,plain:true});
+  assert.match(advanced,/真实浏览器/);assert.match(advanced,/浏览器说明\s*: 用户跳过/);
+});
+
 test('纯文本、NO_COLOR 与外部终端控制符处理，不用跳过数冒充 DNS 失败',()=>{
   const report=fixture();report.sites[0].browser.evidence='blocked\x1b[31m INJECTED\x1b[0m';
   const plain=renderReport(report,{plain:true,color:true,width:100});assert.doesNotMatch(plain,/\x1b/);
