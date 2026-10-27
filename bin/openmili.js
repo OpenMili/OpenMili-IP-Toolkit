@@ -176,7 +176,11 @@ async function main(args = process.argv.slice(2), runtime = {}) {
   report.database = options.lookup && options.command !== 'ip' && !options.signal?.aborted ? await lookupDatabase(checkedIP, { ...transport, abuseKey: process.env.ABUSEIPDB_API_KEY,ipapiKey:process.env.IPAPI_API_KEY,ipinfoKey:process.env.IPINFO_TOKEN }) : { status: 'untested', reason:'用户跳过或本次只检查 IP', records: [] };
   log(`IP 数据库: ${checkedIP || '未获取'} | ${report.database.attribute?.label || '未测试'}`);
   for (const r of report.database.records || []) log(`  ${r.source||r.provider}: ${r.status === 'ok' ? `AS${r.asns?.join(',') || r.asn || '?'} ${r.owner||r.name||''} ${r.country || r.registered_country || ''} ${r.city || ''}` : `未测试（${r.reason}）`}`);
-  if(!options.onlyLookup && !options.noDNS && !options.skipIP)report.dns=await inspectDNS({...transport,publicIP:checkedIP});
+  if(!options.onlyLookup && !options.noDNS && !options.skipIP){
+    log('DNS：正在检测解析协议、PTR 与正反向回查…');
+    report.dns=await inspectDNS({...transport,publicIP:checkedIP});
+    log(`DNS：${report.dns.reason}；响应 ${report.dns.checks?.filter(c=>c.status==='success').length||0}/${report.dns.checks?.length||0}`);
+  }
   if (!options.onlyLookup) {
     log('三网路径：目录节点逐跳探测，方向单独核验…');
     report.routes = options.routes ? await traceRoutes(options.routeTargets?options.targets:undefined, transport, log) : { status: 'untested', reason: '用户跳过', results: [] };
@@ -228,6 +232,7 @@ async function main(args = process.argv.slice(2), runtime = {}) {
   else log(`已测项目参考分: ${report.score.reference ?? '未知'}/100 | 证据覆盖 ${report.score.coverage}% | ${report.score.grade}`);
   log(`报告: ${path.join(output, 'report.html')}`);
   log(`JSON: ${path.join(output, 'report.json')}`);
+  log(`TXT: ${path.join(output, 'report.txt')}`);
   if(options.signal?.aborted) process.exitCode=EXIT.INTERRUPTED;
   return safe;
 }

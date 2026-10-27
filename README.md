@@ -2,9 +2,9 @@
 
 检测**运行本机或指定代理的真实出口 IP**：公开库与 ASN、三网回程、IP 历史、网站 HTTP 和真实 Chromium 风控检测，最后生成中文 HTML / JSON 报告。
 
-## 极简一键脚本（推荐）
+## 一键脚本（推荐）
 
-这就是主要用法：只需要 Node.js 18+ 和 curl，不安装 npm 包、不安装浏览器、不注册软件服务。
+只保留两个菜单，默认运行完整检测。需要 [Node.js 20+ LTS](https://nodejs.org/)（含 npm）和系统 curl。
 
 Windows PowerShell：
 
@@ -18,28 +18,26 @@ Linux/macOS/Git Bash：
 curl -fsSL https://raw.githubusercontent.com/OpenMili/OpenMili-IP-Toolkit/main/simple-ip-check.sh | sh
 ```
 
-启动页先显示脚本名称、GitHub 地址、系统和当前直连公网 IPv4/IPv6。输入 `1` 开始测试，输入 `2` 自定义代理端口（或完整代理地址），再通过代理重新获取受测出口。IPv4/IPv6 分别用 `curl -4`、`curl -6` 从公网回显服务获取，再检查 ASN/归属和常见网站访问/验证状态。不用网关、网卡内网或链路本地地址代替公网出口；获取失败显示原因。
+启动页显示脚本名称、GitHub 地址、系统和当前直连公网 IPv4/IPv6。输入 `1` 开始；输入 `2` 自定义代理端口（默认 7890，支持 HTTP/SOCKS 完整地址）。IPv4/IPv6 使用 `curl -4`、`curl -6` 和各自专属的公网回显域名，避免代理远端解析优先 IPv6 导致漏报 IPv4；不使用网关或内网地址冒充公网出口。
 
-结果逐项打印，TXT 和 JSON 报告保存在用户目录 `~/openmili-reports/`（Windows：`C:\Users\你的用户名\openmili-reports\`），结束时显示绝对路径。Windows 成功或失败均等待回车，不主动关闭当前 PowerShell 窗口。自动运行时可用 `-NoPause`（PowerShell入口）或 `--no-pause`（Node入口）；Node入口支持 `--output 目录`。网站检测固定使用已获取的 IPv4，只有 IPv6 时改用 IPv6；没有公网出口时不提供参考分。
+默认依次检测：公开库/ASN 交叉核验、IP 属性与风险、DNS/PTR、三网路径、注册与近 90 天 BGP 历史、全部 38 个网站的原始 HTTP/桌面请求头/真实浏览器，以及五维评分。启用公开社区来源 ipapi.is；增强举报来源需要 `ABUSEIPDB_API_KEY`，缺少密钥或证据显示未知。ASN/所有者不能单独证明住宅，网站首页可访问也不能保证注册、播放或绝对安全。
 
-## 完整检测引擎（可选）
+**Windows 无需换 Linux。** 两者使用同一个检测内核；Windows 的路由使用原生 `tracert`（ICMP），Linux 安装 `traceroute` 后可按权限测 ICMP/TCP/UDP。**HTTP/SOCKS 代理无法做远端三网回程**，此项说明原因后跳过；测 VPS 回程需要在该 VPS 本机运行。
 
-先安装 [Node.js 20+ LTS](https://nodejs.org/)（含 npm/npx），系统需有 curl。在 **Windows CMD、PowerShell、Linux Bash** 中输入同一条命令，从本 GitHub 仓库下载运行：
+远程运行时自动在临时目录获取完整脚本和核心依赖，完成后清理，不注册系统服务。真实浏览器优先使用 Windows 本机 Edge/Chrome；首次按需下载独立 Playwright worker，缺少浏览器时下载 Chromium，缓存留在用户目录以便复用。浏览器不可用时明确显示未测试，其他模块继续。
 
-```text
-node -e "const c=require('child_process'),p=c.spawnSync('git',['config','--get-urlmatch','http.proxy','https://github.com/'],{encoding:'utf8'}).stdout?.trim();c.execSync('npx --yes --allow-remote=root --package=https://github.com/OpenMili/OpenMili-IP-Toolkit/archive/refs/heads/main.tar.gz?openmili='+Date.now()+' openmili-ip',{stdio:'inherit',env:{...process.env,...(p?{npm_config_https_proxy:p}:{})}})"
+终端逐项显示进度与中文结果，HTML、TXT、JSON、Markdown 报告保存到 `~/openmili-reports/<时间>/`（Windows：`C:\Users\你的用户名\openmili-reports\`），结束显示绝对路径。HTML 是本地报告文件。Windows 成功或失败均等待回车，保留当前 PowerShell。自动运行可用 `-NoPause`（PowerShell入口）或 `--no-pause`（Node入口）。
+
+本地同样使用简单菜单，支持完整内核选项：
+
+```bash
+npm ci
+node simple-ip-check.js
+node simple-ip-check.js --output ./my-reports --no-install
+node simple-ip-check.js --ipv6
 ```
 
-该命令通过 Node 调用系统命令行，兼容 Windows PowerShell 的脚本执行策略。无需 Git，也不需要发布到 npm；若本机已配置 Git 的 GitHub HTTP 代理，下载时会自动复用，不修改持久配置。`--allow-remote=root` 仅为本次命令允许直接指定的 GitHub 安装包，兼容限制远程包的新版 npm。时间戳查询参数避免同一个 main 下载地址长期复用旧版 npx 缓存；依赖仍可使用 npm 缓存。
-
-1. 自动识别系统并获取本机 IPv4 / IPv6。
-2. 输入 **1**：直接开始检测。
-3. 输入 **2**：输入本地代理端口（默认 7890），或完整 `socks5h://127.0.0.1:10808` 地址，再开始检测。
-4. 输出位于**执行命令时的目录** `openmili-reports/<时间>/report.html`，同目录包含 JSON 和异常页面截图。
-
-“自定义端口”指**代理端口**，不是开放本机监听端口。无交互终端或使用 `--no-pause` 时默认直连。
-
-默认只运行轻量 HTTP 检测；使用 `all --browser` 或 `websites --mode browser` 才开启真实浏览器，并按需安装独立 worker。首次浏览器检测优先使用本机 Edge / Chrome，缺失时下载 Chromium。Linux 若缺系统库，执行系统包管理器安装浏览器依赖，或在克隆仓库后运行 `npx playwright install --with-deps chromium`。失败的浏览器项目会标为未测试，HTTP 检测继续执行。
+公网双栈分别发现；网站与评分每次使用一个协议族，默认 IPv4、只有 IPv6 时自动切换。需要比较两个出口时分别运行，第二次加 `--ipv6`，不会把 IPv4 和 IPv6 的网站结果混算。
 
 ## 本地运行
 

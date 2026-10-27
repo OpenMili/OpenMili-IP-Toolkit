@@ -5,7 +5,7 @@ const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
 const http = require('node:http');
-const {curl, detectExit, classify, saveReport, normalizeProxy} = require('../simple-ip-check');
+const {curl, detectExit, normalizeProxy, fullArgs, prepareCore, runFullCheck} = require('../simple-ip-check');
 const {runProcess} = require('../lib/transport');
 
 test('简易脚本分别强制 curl -4/-6，代理不得被 NO_PROXY 绕过，不混用协议族', () => {
@@ -26,6 +26,12 @@ test('简易脚本分别强制 curl -4/-6，代理不得被 NO_PROXY 绕过，�
     return {status: 200, body: requests.length === 1 ? '8.8.8.8' : '2606:4700:4700::1111'};
   });
   assert.equal(v6.ip, '2606:4700:4700::1111');assert.equal(requests.length, 2);assert.ok(requests.every(r => r.family === 6));
+  assert.equal(requests[0].url, 'https://api6.ipify.org');
+  let v4url;
+  const v4 = detectExit(4, 'http://127.0.0.1:10808', url => {
+    v4url = url;return {status: 200, body: new URL(url).hostname === 'api4.ipify.org' ? '8.8.8.8' : '2606:4700:4700::1111'};
+  });
+  assert.equal(v4.ip, '8.8.8.8');assert.equal(v4url, 'https://api4.ipify.org');
   const failed = detectExit(6, '', () => ({status: 0, body: '', error: 'IPv6 connection failed'}));
   assert.equal(failed.ip, null);assert.equal(failed.status, 'unknown');assert.match(failed.reason, /IPv6/);
   for (const ip of ['192.168.1.1', '127.0.0.1', '10.0.0.1', '169.254.1.1', 'fe80::1', '::1', 'fd00::1']) {
@@ -36,18 +42,54 @@ test('简易脚本分别强制 curl -4/-6，代理不得被 NO_PROXY 绕过，�
   assert.throws(() => normalizeProxy('65536'));
 });
 
-test('简易脚本保留公网双栈与错误原因，TXT/JSON 报告写入指定用户目录', async () => {
+test('两项菜单默认启用完整内核，离线真实运行生成全部报告且未知不冒充成功', async () => {
   const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'openmili-simple-report-'));
   try {
-    const report = {checked_at: '2026-10-27T00:00:00.000Z', system: 'fixture', proxy: 'direct', family: 4,
-      exit_ips: {ipv4: {ip: '8.8.8.8'}, ipv6: {ip: null, reason: 'IPv6 fixture unavailable'}}, identity: {}, websites: [{name: 'fixture', status: '网络失败', error: 'fixture error'}], score: null, score_note: 'fixture'};
-    const files = saveReport(report, path.join(temp, '用户报告'));
-    assert.ok(path.isAbsolute(files.text));assert.deepEqual(JSON.parse(await fs.readFile(files.json, 'utf8')), report);
-    const text = await fs.readFile(files.text, 'utf8');assert.match(text, /公网 IPv4：8\.8\.8\.8/);assert.match(text, /公网 IPv6：IPv6 fixture unavailable/);assert.match(text, /fixture error/);
-    assert.equal(classify({status: 200, body: '<h1>GitHub</h1><script>cloudflare captcha challenge</script>'}), '可访问');
-    assert.equal(classify({status: 200, body: '<title>Just a moment</title>Verify you are human'}), '风控/验证');
-    assert.equal(classify({status: 200, body: 'partial', error: 'transfer failed'}), '网络失败');
+    const {parseArgs} = require('../bin/openmili');
+    for (const proxy of ['', 'http://127.0.0.1:10808']) {
+      const options = parseArgs(fullArgs(proxy, temp));
+      for (const flag of ['browser', 'routes', 'history', 'lookup', 'communitySources', 'ignoreEnvProxy', 'noPause']) assert.equal(options[flag], true, flag);
+      assert.equal(options.mode, proxy ? 'proxy' : 'direct');assert.equal(options.proxy, proxy);
+    }
+    const result = await runFullCheck('http://127.0.0.1:10808', temp, ['--offline', '--plain']);
+    assert.equal(result.sites.length, 38);assert.equal(result.command, 'all');assert.equal(result.mode, 'proxy');
+    assert.equal(new URL(result.proxy).port, '10808');assert.equal(result.score.coverage, 0);assert.equal(result.score.overall, null);
+    assert.ok(result.dns);assert.ok(result.history);assert.ok(result.routes);assert.equal(result.browser.reason, '离线模式');
+    assert.equal(result.modules.reputation.status,'unknown');assert.match(result.modules.reputation.reason,/没有有效公网出口/);
+    assert.ok(result.sites.every(site => site.http.kind === 'untested' && site.httpPlain.kind === 'untested' && site.browser.kind === 'untested'));
+    const reports = (await fs.readdir(temp)).filter(name => name !== 'latest.json');assert.equal(reports.length, 1);
+    const directory = path.join(temp, reports[0]);
+    for (const ext of ['txt','json','html','md','ansi']) assert.ok((await fs.stat(path.join(directory, `report.${ext}`))).size > 0);
+    const text = await fs.readFile(path.join(directory, 'report.txt'), 'utf8');
+    assert.equal(text.charCodeAt(0), 0xFEFF);assert.match(text, /公开库风险/);assert.match(text, /IP 历史/);assert.match(text, /真实浏览器/);assert.match(text, /证据覆盖 0%/);
   } finally { await fs.rm(temp, {recursive: true, force: true}); }
+});
+
+test('远程单文件入口实际解包临时核心，禁用安装脚本并在完成或异常时清理', async () => {
+  const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'openmili-bootstrap-test-'));
+  try {
+    const fixture = path.join(temp, 'fixture');await fs.mkdir(path.join(fixture, 'bin'), {recursive:true});
+    await fs.writeFile(path.join(fixture, 'package.json'), JSON.stringify({name:'openmili-ip-toolkit',version:'0.0.0',scripts:{postinstall:"node -e \"require('fs').writeFileSync('BAD_SCRIPT','ran')\""}}));
+    await fs.writeFile(path.join(fixture, 'bin/openmili.js'), `exports.main = async args => {
+      const fs=require('node:fs'),path=require('node:path'),root=path.resolve(__dirname,'..');
+      fs.writeFileSync(args[args.indexOf('--output')+1],root);
+      if(fs.existsSync(path.join(root,'BAD_SCRIPT')))throw Error('install script ran');
+      if(args.includes('--fixture-fail'))throw Error('fixture failure');
+      return {args,root};
+    };`);
+    const npm = require('../lib/npm-runtime').npmCommand(['pack', fixture, '--ignore-scripts', '--json', '--pack-destination', temp]);
+    const packed = await runProcess(npm.command, npm.args, {cwd:fixture,timeout:20000,env:require('../lib/npm-runtime').npmEnvironment()});assert.equal(packed.code, 0, packed.stderr);
+    const data=JSON.parse(packed.stdout),packages=Array.isArray(data)?data:Object.values(data);assert.equal(packages.length,1,packed.stdout);
+    const packageUrl = path.join(temp, packages[0].filename), output = path.join(temp,'received-root');
+    const bootstrap = {sourceRoot:temp, packageUrl, log:()=>{}};
+    const result = await runFullCheck('socks5h://127.0.0.1:10808', output, [], {bootstrap});
+    assert.ok(result.args.includes('--browser'));assert.ok(result.args.includes('--community-sources'));
+    assert.equal(result.args[result.args.indexOf('--proxy')+1], 'socks5h://127.0.0.1:10808');
+    await assert.rejects(fs.stat(result.root), {code:'ENOENT'});
+    await assert.rejects(runFullCheck('',output,['--fixture-fail'],{bootstrap}), /fixture failure/);
+    await assert.rejects(fs.stat(await fs.readFile(output,'utf8')), {code:'ENOENT'});
+    await assert.rejects(prepareCore({...bootstrap,offline:true}), /离线运行需要/);
+  } finally {await fs.rm(temp,{recursive:true,force:true});}
 });
 
 if (process.platform === 'win32') test('Windows 下载入口通过 iex 运行成功/失败均保留当前 PowerShell 会话', async () => {

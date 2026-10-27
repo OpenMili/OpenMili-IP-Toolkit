@@ -2,13 +2,23 @@
 
 Measure the real egress of your machine, configured HTTP/SOCKS proxy, or authorized SSH Agent. Public databases supplement actual HTTP/browser/DNS/TCP/TLS/traceroute observations. ASN names never prove residential access, and a successful homepage never guarantees registration or media playback.
 
-With Node20+ and curl, use the same command in CMD, PowerShell or Bash:
+With Node.js 20+ (including npm) and curl, run the simple entry point in Windows PowerShell:
 
-```text
-node -e "const c=require('child_process');c.execSync('npx --yes --allow-remote=root --package=https://github.com/OpenMili/OpenMili-IP-Toolkit/archive/refs/heads/main.tar.gz?openmili='+Date.now()+' openmili-ip',{stdio:'inherit'})"
+```powershell
+irm https://raw.githubusercontent.com/OpenMili/OpenMili-IP-Toolkit/main/simple-ip-check.ps1 | iex
 ```
 
-The menu provides all checks, proxy port, individual modules, retry, report details and Chinese/English selection. Default website mode is HTTP; `websites --mode browser` or `all --browser` explicitly enables the isolated Playwright worker. Core checks have no browser dependency. `--no-install` forbids automatic dependency downloads.
+Linux/macOS:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/OpenMili/OpenMili-IP-Toolkit/main/simple-ip-check.sh | sh
+```
+
+The two choices are start and custom proxy port. Both run the full engine: dual-stack egress, public ownership/type/risk sources (including the community ipapi.is source), DNS/PTR, routes, registration/BGP history, all 38 sites through raw HTTP, desktop headers and a real browser, and five-dimensional scoring. Family-specific echo hostnames avoid treating a proxy's preferred IPv6 response as a missing IPv4 exit. Windows supports these checks; it uses native ICMP tracert, while Linux traceroute can additionally measure TCP/UDP. HTTP/SOCKS proxies cannot carry remote return-route probes: run the script on the target VPS for those.
+
+Remote runs prepare core dependencies in a temporary directory and clean it afterward. Browser checks prefer installed Edge/Chrome on Windows, then download Chromium if necessary; the isolated Playwright worker is cached in the user directory. Browser failure is shown as untested while other checks continue. Reports stay in `~/openmili-reports/<timestamp>/`; Windows waits for Enter and preserves the calling shell. No system service is registered.
+
+For a local checkout, run `npm ci` and `node simple-ip-check.js`. The advanced CLI below retains separate module commands; its browser mode is opt-in with `all --browser` or `websites --mode browser`. `--no-install` disables browser dependency downloads.
 
 ```text
 node bin/openmili.js all --language en --plain

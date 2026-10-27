@@ -6,7 +6,7 @@ const fs=require('node:fs/promises');
 const os=require('node:os');
 const path=require('node:path');
 const {provider,fetchJSON}=require('../lib/provider');
-const {normalizeRIPE,normalizeCymru,normalizeRDAP,rdapEndpoint}=require('../lib/providers');
+const {normalizeRIPE,normalizeCymru,normalizeRDAP,rdapEndpoint,normalizeIPAPI}=require('../lib/providers');
 const {fuseEvidence}=require('../lib/classification');
 const {applyEnvironmentProxy,proxyForURL,noProxyMatch}=require('../lib/proxy-config');
 test('P1 provider 真实 HTTP 退避重试、TTL、离线、强制刷新与 429 冷却',async()=>{
@@ -42,6 +42,14 @@ test('P1 分类融合：弱 ASN 不定型、同源不双算、冲突/过期与�
   const good=fuseEvidence([{...base,source:'a',independence_group:'a'},{...base,source:'b',independence_group:'b'}]);assert.equal(good.type,'RESIDENTIAL');assert.equal(good.confidence,90);
   const conflict=fuseEvidence([{...base,source:'a',independence_group:'a'},{...base,source:'b',independence_group:'b',network_type:'hosting'}]);assert.equal(conflict.type,'SUSPECTED_RESIDENTIAL');assert.equal(conflict.conflict,true);assert.equal(conflict.opposing.length,1);
   assert.equal(fuseEvidence([{...base,stale:true},{...base,stale:true}]).type,'UNKNOWN');
+});
+
+test('IP 类型来源兼容字符串归属，省略风险字段时保留未知',()=>{
+  const string=normalizeIPAPI({ip:'8.8.8.8',asn:'AS15169 Google LLC',company:'Google LLC'},'8.8.8.8');
+  assert.equal(string.asn,15169);assert.equal(string.owner,'Google LLC');assert.equal(string.company,'Google LLC');
+  assert.deepEqual(string.flags,{});assert.equal(string.network_type,null);assert.equal(fuseEvidence([string]).type,'UNKNOWN');
+  const structured=normalizeIPAPI({ip:'8.8.8.8',asn:{asn:15169,org:'Google LLC'},company:{name:'Google LLC',type:'hosting'},is_proxy:false,is_tor:true},'8.8.8.8');
+  assert.equal(structured.owner,'Google LLC');assert.equal(structured.network_type,'hosting');assert.deepEqual(structured.flags,{is_proxy:false,is_tor:true});
 });
 test('P1 环境代理按协议与 NO_PROXY 适配，显式代理不被覆盖',()=>{
   const env={HTTPS_PROXY:'http://proxy.example:8080',HTTP_PROXY:'http://proxy2.example:8080',NO_PROXY:'.internal.example,localhost'};
