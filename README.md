@@ -18,7 +18,9 @@ Linux/macOS/Git Bash：
 curl -fsSL https://raw.githubusercontent.com/OpenMili/OpenMili-IP-Toolkit/main/simple-ip-check.sh | sh
 ```
 
-脚本自动识别系统，输入 `1` 直连或输入 `2` 填代理端口；然后检查真实出口 IP、ASN/归属和常见网站访问/验证状态，最后只生成一个 JSON 报告。它不会把 HTTP 200 当成“绝对好 IP”。
+脚本自动识别系统，输入 `1` 直连或输入 `2` 填代理端口；分别用 `curl -4`、`curl -6` 从公网回显服务获取 IPv4/IPv6 出口，再检查 ASN/归属和常见网站访问/验证状态。不用网关、网卡内网或链路本地地址代替公网出口；获取失败显示原因。
+
+结果逐项打印，TXT 和 JSON 报告保存在用户目录 `~/openmili-reports/`（Windows：`C:\Users\你的用户名\openmili-reports\`），结束时显示绝对路径。Windows 成功或失败均等待回车，不主动关闭当前 PowerShell 窗口。自动运行时可用 `-NoPause`（PowerShell入口）或 `--no-pause`（Node入口）；Node入口支持 `--output 目录`。网站检测固定使用已获取的 IPv4，只有 IPv6 时改用 IPv6；没有公网出口时不提供参考分。
 
 ## 完整检测引擎（可选）
 
