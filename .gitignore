@@ -3,9 +3,3 @@
 *.tmp
 .DS_Store
 Thumbs.db
-node_modules/
-openmili-reports/
-coverage/
-.artifacts/
-*.tgz
-dist/

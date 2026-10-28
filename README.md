@@ -1,63 +1,53 @@
-# OpenMili IP Toolkit ⚡
+# OpenMili-IP-Toolkit
 
-极简轻量、零依赖、秒级启动的出口 IP 质量与常用服务解锁检测工具。
+两个独立的 IP 检测脚本：Windows PowerShell、Linux Shell。无需 Node.js、npm、Python 或浏览器。结果直接显示在终端，临时文件结束后清理。
 
-专为检测 **本机直连** 或 **本地代理（Clash / v2ray / SOCKS5）** 的真实出口网络质量而设计。
+## 一行运行
 
----
+Windows（PowerShell 5.1 / 7）：
 
-## 🚀 一行命令运行
-
-无需克隆仓库，无需安装任何 npm 包，只要有 [Node.js (18+)](https://nodejs.org/) 即可直接运行：
-
-### Windows (PowerShell)
 ```powershell
 irm https://raw.githubusercontent.com/OpenMili/OpenMili-IP-Toolkit/main/openmili.ps1 | iex
 ```
 
-### Linux / macOS
-```bash
-curl -fsSL https://raw.githubusercontent.com/OpenMili/OpenMili-IP-Toolkit/main/openmili.sh | bash
+Linux：
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/OpenMili/OpenMili-IP-Toolkit/main/openmili.sh | sh
 ```
 
-> **提示**：如果网络无法直接访问 GitHub，脚本内置了镜像加速兜底，国内环境亦可直接拉取执行。
+首页显示名称、GitHub 地址、直连公网 IPv4 / IPv6。输入 `1` 开始，输入 `2` 设置代理端口或 HTTP / SOCKS5 地址。
 
----
+## 检测内容
 
-## 💻 本地克隆运行
+- **公网出口**：通过 curl 查询 IPv4、IPv6 专用回显地址，不把网关或内网地址当作公网 IP。
+- **ASN / 归属**：按取得的公网 IP 查询公开库；查询不到就保留未知。
+- **网站访问**：分别通过 IPv4、IPv6，使用 curl 加 Chrome 请求头，检查 HTTP 状态、返回正文、验证码、地区限制和拒绝信息。逐站实时显示结果。
+- **三网路径**：参考 [zhanghanyun/backtrace](https://github.com/zhanghanyun/backtrace) 的北京、上海、广州、成都 12 个节点，实际逐跳探测并识别线路前缀特征。
+- **结束核验**：复查公网出口，提示检测期间是否变化。
 
-```bash
-git clone https://github.com/OpenMili/OpenMili-IP-Toolkit.git
-cd OpenMili-IP-Toolkit
+颜色：绿＝页面通过，黄＝验证 / 登录 / 待确认，红＝阻断 / 网络失败，灰＝没有该协议族 / 未执行。
 
-# 交互式菜单（支持直接选择直连或输入代理端口）
-node openmili.js
+网站页面可访问不等于账号、订阅或视频播放解锁；浏览器请求头不会执行 JavaScript。代理按目标分流仍可能使用不同出口。三网路径只测本机直连，代理模式跳过；线路前缀是提示，不据此宣称 CN2 GIA 或线路等级。
 
-# 命令行直接运行
-node openmili.js -d                        # 直连检测
-node openmili.js -p 7890                   # 本地 HTTP 代理 (127.0.0.1:7890)
-node openmili.js -p socks5://127.0.0.1:10808 # SOCKS5 代理
+## 本地运行
+
+```powershell
+Get-Content .\openmili.ps1 -Raw -Encoding UTF8 | iex
 ```
 
----
+PowerShell 7 也可直接运行 `.\openmili.ps1 -Direct -NoPause`，或加 `-Proxy 10808` / `-Proxy socks5h://127.0.0.1:10808`。Windows PowerShell 5.1 使用上面的 UTF-8 读取方式。
 
-## ✨ 核心特性
+```sh
+sh openmili.sh --direct
+sh openmili.sh --proxy 10808
+sh openmili.sh --proxy socks5h://127.0.0.1:10808
+```
 
-- ⚡ **秒级完成**：全并发异步池化请求，耗时仅需 2~3 秒，彻底告别漫长等待与黑屏假死。
-- 📦 **真正的零依赖**：基于 Node.js 原生标准库与系统 `curl`，不需要 `npm install` 任何第三方包。
-- 🌐 **双栈与网络属性**：
-  - IPv4 / IPv6 双栈出口检测
-  - 准确识别国家、城市、ASN 与运营商组织
-  - 智能分类：**住宅宽带 (Residential)** / **数据中心 (Datacenter)** / **蜂窝移动 (Mobile)**
-  - 公共代理 / VPN 节点识别
-- 🎯 **主流服务解锁状态**：
-  - **AI 智能服务**：ChatGPT、OpenAI API、Anthropic Claude、Google Gemini、Microsoft Copilot、Grok (xAI)
-  - **流媒体与娱乐**：YouTube、Netflix (原生完整片库 vs 自制剧)、Disney+、Spotify、TikTok
-  - **常用服务与社交**：Google 搜索 (无验证码检测)、GitHub、Twitter / X、Reddit、Wikipedia、Telegram Web
-- 🎨 **终端彩色美化**：实时流式输出测试结果，状态一目了然。
+Windows 使用系统自带 `curl.exe` 和 .NET ICMP 逐跳探测。Linux 需要 `curl`；三网路径优先使用 `traceroute`，缺失时尝试 `tracepath`。缺少工具会提示安装命令，不自动修改系统。
 
----
+用 `-Help`（Windows）或 `--help`（Linux）查看跳过回程、超时和无颜色选项。
 
-## 📄 License
+## 许可
 
-[MIT](LICENSE)
+[MIT](LICENSE) · [回程参考代码说明](THIRD_PARTY_NOTICES.md)
