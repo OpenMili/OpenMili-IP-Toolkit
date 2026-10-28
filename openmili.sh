@@ -42,7 +42,7 @@ if [ "$OM_COLOR" -eq 1 ] && [ -t 1 ] && [ "${NO_COLOR+x}" != x ] && [ "${TERM:-}
     OM_RESET="${OM_ESC}[0m" OM_GREEN="${OM_ESC}[32m" OM_YELLOW="${OM_ESC}[33m"
     OM_RED="${OM_ESC}[31m" OM_GRAY="${OM_ESC}[90m" OM_CYAN="${OM_ESC}[36m"
 fi
-om_rule() { awk -v n="$1" -v s="${2:-─}" 'BEGIN{for(i=0;i<n;i++)printf "%s",s}'; }
+om_rule() { awk -v n="$1" 'BEGIN{for(i=0;i<n;i++)printf "─"}'; }
 om_pad() {
     printf '%s' "$1"
     OM_PAD_WIDTH=$(printf '%s' "$1" | LC_ALL=C awk '{for(i=1;i<=length($0);i++){c=substr($0,i,1);if(c~/[\360-\367]/){n+=2;i+=3}else if(c~/[\340-\357]/){n+=2;i+=2}else if(c~/[\300-\337]/){n++;i++}else n++}}END{print n+0}')
@@ -88,7 +88,7 @@ om_fetch() {
         -H 'Sec-Fetch-Dest: document' -H 'Sec-Fetch-Mode: navigate' -H 'Sec-Fetch-Site: none' -H 'Upgrade-Insecure-Requests: 1' \
         -D "$OM_TEMP/headers" -o "$OM_TEMP/body" -w '%{http_code}\n%{time_total}\n%{url_effective}\n' "$OM_URL"
     : > "$OM_TEMP/body"; : > "$OM_TEMP/headers"
-    curl "$@" > "$OM_TEMP/meta" 2> "$OM_TEMP/error"; OM_RC=$?
+    curl "$@" > "$OM_TEMP/meta" 2>/dev/null; OM_RC=$?
     OM_CODE=$(sed -n '1p' "$OM_TEMP/meta"); OM_TIME=$(sed -n '2p' "$OM_TEMP/meta")
     OM_FINAL=$(sed -n '3p' "$OM_TEMP/meta")
     OM_CODE=${OM_CODE:-000}; OM_TIME=$(awk -v t="${OM_TIME:-0}" 'BEGIN{printf "%.1f",t}')
@@ -127,7 +127,6 @@ om_cell() {
         tls) OM_LABEL='TLS失败 '; OM_TONE=$OM_RED;;
         timeout) OM_LABEL='超时    '; OM_TONE=$OM_RED;;
         fail) OM_LABEL='失败    '; OM_TONE=$OM_RED;;
-        noip) OM_LABEL='未启用  '; OM_TONE=$OM_GRAY;;
         noaddr) OM_LABEL='无DNS   '; OM_TONE=$OM_GRAY;;
         source) OM_LABEL='解析源失败'; OM_TONE=$OM_GRAY;;
         *) OM_LABEL='待核    '; OM_TONE=$OM_GRAY;;
@@ -137,8 +136,7 @@ om_cell() {
     printf '%b%s%b %3s %s' "$OM_TONE" "$OM_LABEL" "$OM_RESET" "$2" "$OM_SECONDS"
 }
 om_probe() {
-    OM_PF=$1 OM_PNAME=$2 OM_PURL=$3 OM_MARKER=$4 OM_AVAILABLE=$5
-    if [ -z "$OM_AVAILABLE" ]; then om_cell noip --- -; return; fi
+    OM_PF=$1 OM_PURL=$2 OM_MARKER=$3
     OM_PPIN=''
     if [ -n "$OM_PROXY" ]; then
         OM_HOST=${OM_PURL#https://}; OM_HOST=${OM_HOST%%/*}; OM_TYPE=1; [ "$OM_PF" = 4 ] || OM_TYPE=28
@@ -365,14 +363,14 @@ else printf '  IPv4 / IPv6\n'; fi
 while IFS='|' read -r OM_NAME OM_SITE OM_PATTERN; do
     if { [ "$OM_DUAL" -eq 1 ] && [ "$OM_WIDTH" -lt 68 ]; } || [ "$OM_WIDTH" -lt 44 ]; then
         printf '  %s\n' "$OM_NAME"
-        if [ -n "$OM_V4" ]; then printf '    IPv4  '; om_probe 4 "$OM_NAME" "$OM_SITE" "$OM_PATTERN" "$OM_V4"; printf '\n'; fi
-        if [ -n "$OM_V6" ]; then printf '    IPv6  '; om_probe 6 "$OM_NAME" "$OM_SITE" "$OM_PATTERN" "$OM_V6"; printf '\n'; fi
+        if [ -n "$OM_V4" ]; then printf '    IPv4  '; om_probe 4 "$OM_SITE" "$OM_PATTERN"; printf '\n'; fi
+        if [ -n "$OM_V6" ]; then printf '    IPv6  '; om_probe 6 "$OM_SITE" "$OM_PATTERN"; printf '\n'; fi
     else
         printf '  '; om_pad "$OM_NAME" 18
-        if [ -n "$OM_V4" ]; then om_probe 4 "$OM_NAME" "$OM_SITE" "$OM_PATTERN" "$OM_V4"; fi
+        if [ -n "$OM_V4" ]; then om_probe 4 "$OM_SITE" "$OM_PATTERN"; fi
         if [ -n "$OM_V6" ]; then
             [ "$OM_DUAL" -eq 0 ] || printf '  '
-            om_probe 6 "$OM_NAME" "$OM_SITE" "$OM_PATTERN" "$OM_V6"
+            om_probe 6 "$OM_SITE" "$OM_PATTERN"
         fi
         printf '\n'
     fi

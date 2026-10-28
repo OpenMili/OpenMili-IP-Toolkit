@@ -58,9 +58,9 @@ function Invoke-OpenMiliProcess([string]$File, [string[]]$Arguments, [int]$WaitM
         $stderr = $process.StandardError.ReadToEndAsync()
         $expired = -not $process.WaitForExit($WaitMilliseconds)
         if ($expired) { $process.Kill(); $process.WaitForExit() }
-        $out = $stdout.GetAwaiter().GetResult(); $err = $stderr.GetAwaiter().GetResult()
-        return [pscustomobject]@{ Code = $(if ($expired) { 28 } else { $process.ExitCode }); Out = $out; Error = $err; TimedOut = $expired }
-    } catch { return [pscustomobject]@{ Code = 127; Out = ''; Error = $_.Exception.Message; TimedOut = $false } }
+        $out = $stdout.GetAwaiter().GetResult(); [void]$stderr.GetAwaiter().GetResult()
+        return [pscustomobject]@{ Code = $(if ($expired) { 28 } else { $process.ExitCode }); Out = $out }
+    } catch { return [pscustomobject]@{ Code = 127; Out = '' } }
     finally {
         try { if (-not $process.HasExited) { $process.Kill(); $process.WaitForExit() } } catch {}
         $process.Dispose()
@@ -109,7 +109,7 @@ function Invoke-OpenMiliCurl {
         } finally { $stream.Dispose() }
         $location = ''
         foreach ($line in [IO.File]::ReadLines($headerPath)) { if ($line -match '(?i)^location:\s*(.+)$') { $location = $Matches[1].Trim() } }
-        [pscustomobject]@{ Code = $code; ExitCode = $native.Code; Body = $body; Duration = $duration; FinalUrl = $finalUrl; RequestUrl = $Url; Location = $location; Error = $native.Error }
+        [pscustomobject]@{ Code = $code; ExitCode = $native.Code; Body = $body; Duration = $duration; FinalUrl = $finalUrl; RequestUrl = $Url; Location = $location }
     } finally { Remove-Item -LiteralPath $bodyPath,$headerPath -Force -ErrorAction SilentlyContinue }
 }
 
@@ -160,7 +160,7 @@ function Get-OpenMiliInfo([string]$IP, [int]$Family, [string]$Via = '', [int]$Se
             }
             $asn = $asn -replace '^AS',''
             if ($asn -notmatch '^[0-9]+$' -or -not $org) { continue }
-            return [pscustomobject]@{ IP = $IP; ASN = "AS$asn"; Org = (ConvertTo-OpenMiliSafeText $org); Country = (ConvertTo-OpenMiliSafeText $country); City = (ConvertTo-OpenMiliSafeText $city); Source = $source[0] }
+            return [pscustomobject]@{ ASN = "AS$asn"; Org = (ConvertTo-OpenMiliSafeText $org); Country = (ConvertTo-OpenMiliSafeText $country); City = (ConvertTo-OpenMiliSafeText $city); Source = $source[0] }
         } catch {}
     }
     return $null
@@ -251,9 +251,8 @@ function Write-OpenMiliText([string]$Text, [string]$Tone = '', [switch]$Inline) 
 }
 
 function Get-OpenMiliPad([string]$Text, [int]$Width) {
-    $text = ConvertTo-OpenMiliSafeText $Text; $length = 0
-    foreach ($ch in $text.ToCharArray()) { $length += $(if ([int]$ch -ge 0x2e80 -and [int]$ch -le 0xffef) { 2 } else { 1 }) }
-    return $text + (' ' * [Math]::Max(0, $Width - $length))
+    $text = ConvertTo-OpenMiliSafeText $Text
+    return $text + (' ' * [Math]::Max(0, $Width - (Get-OpenMiliWidth $text)))
 }
 
 function Get-OpenMiliWidth([string]$Text) {
