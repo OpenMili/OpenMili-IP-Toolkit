@@ -26,37 +26,39 @@ om_cleanup() {
 }
 trap 'om_cleanup' 0
 trap 'printf "\n已中止。\n"; exit 130' INT TERM
-OM_START=$(date +%s)
-OM_WIDTH=${COLUMNS:-76}
+om_clock() { if [ -r /proc/uptime ]; then awk '{printf "%d",$1}' /proc/uptime; else date +%s; fi; }
+OM_START=$(om_clock)
+OM_WIDTH=${COLUMNS:-96}
 if [ -t 1 ] && command -v stty >/dev/null 2>&1; then
     OM_SIZE=$(stty size 2>/dev/null || :)
     [ -z "$OM_SIZE" ] || OM_WIDTH=${OM_SIZE##* }
 fi
-case "$OM_WIDTH" in ''|*[!0-9]*) OM_WIDTH=76;; esac
+case "$OM_WIDTH" in ''|*[!0-9]*) OM_WIDTH=96;; esac
 [ "$OM_WIDTH" -ge 32 ] || OM_WIDTH=32
-[ "$OM_WIDTH" -le 76 ] || OM_WIDTH=76
-OM_SECTION=0
+[ "$OM_WIDTH" -le 96 ] || OM_WIDTH=96
 OM_ESC=$(printf '\033')
 OM_RESET='' OM_GREEN='' OM_YELLOW='' OM_RED='' OM_GRAY='' OM_CYAN=''
 if [ "$OM_COLOR" -eq 1 ] && [ -t 1 ] && [ "${NO_COLOR+x}" != x ] && [ "${TERM:-}" != dumb ]; then
     OM_RESET="${OM_ESC}[0m" OM_GREEN="${OM_ESC}[32m" OM_YELLOW="${OM_ESC}[33m"
     OM_RED="${OM_ESC}[31m" OM_GRAY="${OM_ESC}[90m" OM_CYAN="${OM_ESC}[36m"
 fi
-om_rule() { awk -v n="$1" 'BEGIN{for(i=0;i<n;i++)printf "─"}'; }
+om_rule() { awk -v n="$1" 'BEGIN{for(i=0;i<n;i++)printf "-"}'; }
+om_width() {
+    printf '%s' "$1" | LC_ALL=C awk '{for(i=1;i<=length($0);i++){c=substr($0,i,1);if(c~/[\360-\367]/){n+=2;i+=3}else if(c~/[\340-\357]/){n+=2;i+=2}else if(c~/[\300-\337]/){n++;i++}else n++}}END{print n+0}'
+}
 om_pad() {
     printf '%s' "$1"
-    OM_PAD_WIDTH=$(printf '%s' "$1" | LC_ALL=C awk '{for(i=1;i<=length($0);i++){c=substr($0,i,1);if(c~/[\360-\367]/){n+=2;i+=3}else if(c~/[\340-\357]/){n+=2;i+=2}else if(c~/[\300-\337]/){n++;i++}else n++}}END{print n+0}')
+    OM_PAD_WIDTH=$(om_width "$1")
     [ "$OM_PAD_WIDTH" -ge "$2" ] || printf '%*s' "$(( $2 - OM_PAD_WIDTH ))" ''
 }
-om_wrap() {
-    printf '%s\n' "$1" | LC_ALL=C awk -v w="$((OM_WIDTH-${2:-2}))" -v indent="${2:-2}" '
-    BEGIN{for(j=0;j<indent;j++)p=p" ";printf "%s",p}
-    {for(i=1;i<=length($0);i++){c=substr($0,i,1);b=1;n=1;if(c~/[\360-\367]/){b=4;n=2}else if(c~/[\340-\357]/){b=3;n=2}else if(c~/[\300-\337]/)b=2;if(size+n>w){printf "\n%s",p;size=0}printf "%s",substr($0,i,b);size+=n;i+=b-1}}END{printf "\n"}'
+om_lines() {
+    printf '%s\n' "$1" | LC_ALL=C awk -v w="$2" '
+    {for(i=1;i<=length($0);i++){c=substr($0,i,1);b=1;n=1;if(c~/[\360-\367]/){b=4;n=2}else if(c~/[\340-\357]/){b=3;n=2}else if(c~/[\300-\337]/)b=2;if(size+n>w){printf "\n";size=0}printf "%s",substr($0,i,b);size+=n;i+=b-1}}END{printf "\n"}'
 }
+om_wrap() { om_lines "$1" "$((OM_WIDTH-${2:-2}))" | awk -v n="${2:-2}" '{printf "%*s%s\n",n,"",$0}'; }
+om_field() { om_wrap "$(om_pad "$1" 12): $2"; }
 om_section() {
-    OM_SECTION=$((OM_SECTION+1))
-    printf '\n  %b%02d  %s%b\n  %b' "$OM_CYAN" "$OM_SECTION" "$1" "$OM_RESET" "$OM_GRAY"
-    om_rule "$((OM_WIDTH-4))"; printf '%b\n' "$OM_RESET"
+    printf '\n%b' "$OM_CYAN"; om_rule "$OM_WIDTH"; printf '\n'; om_wrap "$1" 0; om_rule "$OM_WIDTH"; printf '%b\n' "$OM_RESET"
 }
 om_clean() { tr '\000-\010\013\014\016-\037\177' ' ' | tr '\r\n' '  ' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'; }
 om_json() { sed -n 's/.*"'"$1"'"[[:space:]]*:[[:space:]]*"\([^"\\]*\)".*/\1/p' "$2" | head -n 1 | om_clean; }
@@ -111,29 +113,29 @@ om_normalize_proxy() {
     esac
     case "$OM_PROXY" in *' '*|*'?'*|*'#'*) return 1;; esac
 }
-om_cell() {
+om_label() {
     case "$1" in
-        pass) OM_LABEL='通过    '; OM_TONE=$OM_GREEN;;
-        captcha) OM_LABEL='验证    '; OM_TONE=$OM_YELLOW;;
-        js) OM_LABEL='需JS    '; OM_TONE=$OM_YELLOW;;
-        login) OM_LABEL='登录    '; OM_TONE=$OM_YELLOW;;
-        partial) OM_LABEL='可达?   '; OM_TONE=$OM_YELLOW;;
-        empty) OM_LABEL='空白    '; OM_TONE=$OM_YELLOW;;
+        pass) OM_LABEL='通过'; OM_TONE=$OM_GREEN;;
+        captcha) OM_LABEL='验证'; OM_TONE=$OM_YELLOW;;
+        js) OM_LABEL='需JS'; OM_TONE=$OM_YELLOW;;
+        login) OM_LABEL='登录'; OM_TONE=$OM_YELLOW;;
+        partial) OM_LABEL='可达?'; OM_TONE=$OM_YELLOW;;
+        empty) OM_LABEL='空白'; OM_TONE=$OM_YELLOW;;
         redirect) OM_LABEL='跳转待核'; OM_TONE=$OM_YELLOW;;
         region) OM_LABEL='地区限制'; OM_TONE=$OM_RED;;
-        block) OM_LABEL='阻断    '; OM_TONE=$OM_RED;;
-        rate) OM_LABEL='限流    '; OM_TONE=$OM_RED;;
-        dns) OM_LABEL='DNS失败 '; OM_TONE=$OM_RED;;
-        tls) OM_LABEL='TLS失败 '; OM_TONE=$OM_RED;;
-        timeout) OM_LABEL='超时    '; OM_TONE=$OM_RED;;
-        fail) OM_LABEL='失败    '; OM_TONE=$OM_RED;;
-        noaddr) OM_LABEL='无DNS   '; OM_TONE=$OM_GRAY;;
-        source) OM_LABEL='解析源失败'; OM_TONE=$OM_GRAY;;
-        *) OM_LABEL='待核    '; OM_TONE=$OM_GRAY;;
+        block) OM_LABEL='阻断'; OM_TONE=$OM_RED;;
+        rate) OM_LABEL='限流'; OM_TONE=$OM_RED;;
+        dns) OM_LABEL='DNS失败'; OM_TONE=$OM_RED;;
+        tls) OM_LABEL='TLS失败'; OM_TONE=$OM_RED;;
+        timeout) OM_LABEL='超时'; OM_TONE=$OM_RED;;
+        fail) OM_LABEL='失败'; OM_TONE=$OM_RED;;
+        noaddr) OM_LABEL='无DNS'; OM_TONE=$OM_GRAY;;
+        source) OM_LABEL='解析失败'; OM_TONE=$OM_GRAY;;
+        *) OM_LABEL='未知'; OM_TONE=$OM_GRAY;;
     esac
-    [ "$1" = source ] || OM_LABEL="$OM_LABEL  "
-    if [ "$3" = - ]; then OM_SECONDS='    —'; else OM_SECONDS=$(printf '%4ss' "$3"); fi
-    printf '%b%s%b %3s %s' "$OM_TONE" "$OM_LABEL" "$OM_RESET" "$2" "$OM_SECONDS"
+}
+om_probe_record() {
+    case "$OM_KIND" in source|noaddr) printf '%s|unknown\n' "$OM_PF";; *) printf '%s|%s\n' "$OM_PF" "$OM_KIND";; esac >> "$OM_TEMP/results"
 }
 om_probe() {
     OM_PF=$1 OM_PURL=$2 OM_MARKER=$3
@@ -145,10 +147,10 @@ om_probe() {
             om_fetch 4 "$OM_DOH_BASE?name=$OM_HOST&type=$OM_TYPE" '' 5 'application/dns-json'
             if [ "$OM_RC" -eq 0 ] && [ "$OM_CODE" = 200 ] && grep -Eq '"Status"[[:space:]]*:[[:space:]]*[0-9]+([[:space:]]*[,}])' "$OM_TEMP/body"; then OM_DOH_OK=1; break; fi
         done
-        if [ "$OM_DOH_OK" -ne 1 ]; then om_cell source --- -; printf '%s|unknown\n' "$OM_PF" >> "$OM_TEMP/results"; return; fi
-        if ! grep -Eq '"Status"[[:space:]]*:[[:space:]]*0([[:space:]]*[,}])' "$OM_TEMP/body"; then om_cell dns --- -; printf '%s|fail\n' "$OM_PF" >> "$OM_TEMP/results"; return; fi
+        if [ "$OM_DOH_OK" -ne 1 ]; then OM_KIND=source OM_CODE=000; om_probe_record; return; fi
+        if ! grep -Eq '"Status"[[:space:]]*:[[:space:]]*0([[:space:]]*[,}])' "$OM_TEMP/body"; then OM_KIND=dns OM_CODE=000; om_probe_record; return; fi
         OM_ADDR=$(tr '{' '\n' < "$OM_TEMP/body" | awk -v t="$OM_TYPE" '$0 ~ "\"type\"[[:space:]]*:[[:space:]]*"t"[[:space:]]*," {s=$0;sub(/.*"data"[[:space:]]*:[[:space:]]*"/,"",s);sub(/".*/,"",s);print s;exit}')
-        if ! om_public "$OM_PF" "$OM_ADDR"; then om_cell noaddr --- -; printf '%s|unknown\n' "$OM_PF" >> "$OM_TEMP/results"; return; fi
+        if ! om_public "$OM_PF" "$OM_ADDR"; then OM_KIND=noaddr OM_CODE=000; om_probe_record; return; fi
         [ "$OM_PF" = 4 ] || OM_ADDR="[$OM_ADDR]"
         OM_PPIN="$OM_HOST:443:$OM_ADDR:443"
     fi
@@ -188,8 +190,7 @@ om_probe() {
     elif grep -Eiq '<(title|h1)[^>]*>[[:space:]]*(access denied|forbidden|request (blocked|rejected)|you have been blocked)' "$OM_TEMP/body"; then OM_KIND=block
     elif grep -Eiq "$OM_MARKER" "$OM_TEMP/body"; then OM_KIND=pass
     fi
-    om_cell "$OM_KIND" "$OM_CODE" "$OM_TIME"
-    printf '%s|%s\n' "$OM_PF" "$OM_KIND" >> "$OM_TEMP/results"
+    om_probe_record
 }
 om_info() {
     OM_IF=$1 OM_IP=$2
@@ -223,11 +224,14 @@ om_info() {
         [ -n "$OM_COUNTRY" ] || OM_COUNTRY=$(om_json country "$OM_TEMP/body")
         OM_CITY=$(om_json city "$OM_TEMP/body")
         [ -n "$OM_ASN$OM_ORG$OM_COUNTRY" ] || continue
-        om_wrap "IPv$OM_IF  ${OM_ASN:+AS}${OM_ASN:-未知 ASN} · ${OM_ORG:-归属未返回}"
-        om_wrap "${OM_COUNTRY:-位置未知}${OM_CITY:+ · }$OM_CITY  [$OM_PROVIDER]" 8
+        om_field "IPv$OM_IF ASN" "${OM_ASN:+AS}${OM_ASN:-未知 ASN} · ${OM_ORG:-归属未返回}"
+        om_field '地区' "${OM_COUNTRY:-未知}${OM_CITY:+ / }$OM_CITY  [$OM_PROVIDER]"
+        if printf '%s' "$OM_ORG" | grep -Eiq 'Cloud|Hosting|Datacenter|Data Center|DMIT|RackNerd|Amazon|Google|Microsoft|DigitalOcean|OVH|Hetzner|Vultr|Linode|Akamai|Oracle'; then
+            om_field 'IP 属性' '机房倾向 (ASN归属)'
+        else om_field 'IP 属性' '未知 (仅凭ASN不能确认住宅)'; fi
         return
     done
-    printf '  IPv%s  %b归属查询暂不可用%b\n' "$OM_IF" "$OM_GRAY" "$OM_RESET"
+    printf '%b' "$OM_GRAY"; om_field "IPv$OM_IF ASN" '归属查询暂不可用'; om_field 'IP 属性' '未知'; printf '%b' "$OM_RESET"
 }
 om_hints() {
     # Preserve hop order; the specific international line replaces its common trunk.
@@ -252,67 +256,80 @@ om_trace_ping() {
         OM_PING_CHILDREN=''
         OM_READ_TTL=$((OM_TTL-OM_WAVE))
         while [ "$OM_READ_TTL" -lt "$OM_TTL" ]; do
-            awk -v ttl="$OM_READ_TTL" 'tolower($0)~/from/ {for(i=1;i<NF;i++)if(tolower($i)=="from"){s=$(i+1);gsub(/[():]/,"",s);if(s~/^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/){print ttl,s;break}}}' "$OM_PING_PREFIX-$OM_READ_TTL" >> "$OM_PING_FILE"
+            awk -v ttl="$OM_READ_TTL" -v target="$OM_PING_IP" 'tolower($0)~/from/ {line=tolower($0);echo=line~/bytes from/;ok=echo||line~/time to live exceeded|ttl (expired|exceeded)/;for(i=1;i<NF;i++)if(tolower($i)=="from"){s=$(i+1);gsub(/[():]/,"",s);if(s~/^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/){if(!echo&&s==target)print ttl,s,"!E";else if(ok)print ttl,s;else print ttl,s,"!E";break}}}' "$OM_PING_PREFIX-$OM_READ_TTL" >> "$OM_PING_FILE"
             grep -Ei 'permission|not permitted|invalid option|unrecognized option|socket:' "$OM_PING_PREFIX-$OM_READ_TTL" >> "$OM_PING_FILE" || :
             OM_READ_TTL=$((OM_READ_TTL+1))
         done
-        awk -v ip="$OM_PING_IP" '$2==ip{found=1}END{exit !found}' "$OM_PING_FILE" && break
+        awk -v ip="$OM_PING_IP" '$2==ip&&!index($0,"!"){found=1}END{exit !found}' "$OM_PING_FILE" && break
         grep -Eiq 'permission|not permitted|invalid option|unrecognized option|socket:' "$OM_PING_FILE" && break
     done
 }
-om_trace() {
+om_trace_collect() {
     OM_PING_SESSION=''
     trap '[ -z "$OM_PING_SESSION" ] || kill "$OM_PING_SESSION" 2>/dev/null || :; exit 130' INT TERM
-    OM_TNAME=$1 OM_TIP=$2 OM_TFILE="$OM_TEMP/trace-$2"
-    OM_METHOD='ICMP'; OM_LIMITED=0
-    if [ "$OM_TOOL" = traceroute ]; then
-        om_trace_run traceroute -4 -n -I -q 1 -w 1 -m 30 "$OM_TIP" > "$OM_TFILE" 2>&1 || OM_LIMITED=1
-        OM_HINT=$(om_hints "$OM_TFILE")
-        if [ -z "$OM_HINT" ] && command -v ping >/dev/null 2>&1; then
-            om_trace_ping "$OM_TIP" "$OM_TFILE.ping" & OM_PING_SESSION=$!
-            wait "$OM_PING_SESSION" || :
-            cat "$OM_TFILE.ping" >> "$OM_TFILE"
-            OM_HINT=$(om_hints "$OM_TFILE")
-        fi
-        if [ -z "$OM_HINT" ] && ! awk -v ip="$OM_TIP" '$1~/^[0-9]+[.:]?$/ {for(i=2;i<=NF;i++)if($i==ip)found=1}END{exit !found}' "$OM_TFILE"; then
-            om_trace_run traceroute -4 -n -T -p 443 -q 1 -w 1 -m 30 "$OM_TIP" > "$OM_TFILE.tcp" 2>&1 || OM_LIMITED=1
-            if [ -n "$(om_hints "$OM_TFILE.tcp")" ] || awk -v ip="$OM_TIP" '$1~/^[0-9]+[.:]?$/ {for(i=2;i<=NF;i++)if($i==ip)found=1}END{exit !found}' "$OM_TFILE.tcp"; then OM_METHOD='TCP'; fi
-            cat "$OM_TFILE.tcp" >> "$OM_TFILE"
-        fi
-        if ! awk '$1~/^[0-9]+[.:]?$/ {for(i=2;i<=NF;i++)if($i~/^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/)n++}END{exit !n}' "$OM_TFILE"; then
-            om_trace_run traceroute -4 -n -q 1 -w 1 -m 30 "$OM_TIP" > "$OM_TFILE.udp" 2>&1 || OM_LIMITED=1
-            OM_METHOD='UDP'
-            cat "$OM_TFILE.udp" >> "$OM_TFILE"
-        fi
+    OM_METHOD=$1 OM_TIP=$2 OM_TFILE=$3
+    : > "$OM_TFILE"
+    if [ "$OM_METHOD" = TCP ]; then
+        if [ -z "${OM_TCP_TOOL:-}" ]; then printf 'OPENMILI_NO_TOOL\n' > "$OM_TFILE"; return; fi
+        om_trace_run traceroute -4 -n -T -p 443 -q 1 -w 1 -m 30 "$OM_TIP" > "$OM_TFILE" 2>&1 || printf 'OPENMILI_TRACE_FAILED\n' >> "$OM_TFILE"
+    elif [ "$OM_TOOL" = traceroute ]; then
+        om_trace_run traceroute -4 -n -I -q 1 -w 1 -m 30 "$OM_TIP" > "$OM_TFILE" 2>&1 || printf 'OPENMILI_TRACE_FAILED\n' >> "$OM_TFILE"
     elif [ "$OM_TOOL" = ping ]; then
         om_trace_ping "$OM_TIP" "$OM_TFILE" & OM_PING_SESSION=$!
         wait "$OM_PING_SESSION" || :
-    else OM_METHOD='UDP'; om_trace_run tracepath -4 -n -m 30 "$OM_TIP" > "$OM_TFILE" 2>&1 || OM_LIMITED=1; fi
+    else printf 'OPENMILI_NO_TOOL\n' > "$OM_TFILE"; fi
+}
+om_trace_status() {
+    OM_TFILE=$1 OM_TIP=$2
     OM_HINT=$(om_hints "$OM_TFILE")
     # Arrival requires a hop line: the banner also contains the destination IP.
-    OM_REACHED=$(awk -v ip="$OM_TIP" '$1~/^[0-9]+[.:]?$/ {for(i=2;i<=NF;i++)if($i==ip){print 1;exit}}' "$OM_TFILE")
+    OM_REACHED=$(awk -v ip="$OM_TIP" '$1~/^[0-9]+[.:]?$/&&!index($0,"!") {for(i=2;i<=NF;i++)if($i==ip){print 1;exit}}' "$OM_TFILE")
     OM_HOPS=$(awk '$1~/^[0-9]+[.:]?$/ {for(i=2;i<=NF;i++)if($i~/^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/){n++;break}} END{print n+0}' "$OM_TFILE")
     if [ "$OM_REACHED" = 1 ]; then OM_STATE='已到达'; OM_TONE=$OM_GREEN
     elif [ "$OM_HOPS" -gt 0 ]; then OM_STATE='部分可见'; OM_TONE=$OM_YELLOW
-    elif grep -Eiq 'permission|not permitted|socket:' "$OM_TFILE"; then OM_STATE='权限受限'; OM_TONE=$OM_GRAY
+    elif grep -Eiq 'permission|not permitted|privilege|must be root|socket:' "$OM_TFILE"; then OM_STATE='权限受限'; OM_TONE=$OM_GRAY
     elif grep -Eiq 'unrecognized|invalid option|not found|unknown option' "$OM_TFILE"; then OM_STATE='工具不兼容'; OM_TONE=$OM_GRAY
     elif grep -Eiq 'unreachable|no route|network is down' "$OM_TFILE"; then OM_STATE='路由不可达'; OM_TONE=$OM_GRAY
     elif grep -q 'OPENMILI_TRACE_TIMEOUT' "$OM_TFILE"; then OM_STATE='探测超时'; OM_TONE=$OM_GRAY
-    elif [ "$OM_LIMITED" -eq 1 ]; then OM_STATE='探测失败'; OM_TONE=$OM_GRAY
+    elif grep -q 'OPENMILI_NO_TOOL' "$OM_TFILE"; then OM_STATE='未安装'; OM_TONE=$OM_GRAY
+    elif grep -q 'OPENMILI_TRACE_FAILED' "$OM_TFILE"; then OM_STATE='探测失败'; OM_TONE=$OM_GRAY
     else OM_STATE='无响应'; OM_TONE=$OM_GRAY; fi
-    printf '  '; om_pad "$OM_TNAME" 10; om_pad "$OM_TIP" 17
-    if [ "${OM_WIDTH:-76}" -lt 64 ]; then
-        printf '\n%b' "$OM_TONE"; om_wrap "$OM_METHOD · $OM_STATE · ${OM_HINT:-未见线路特征}" 4; printf '%b' "$OM_RESET"; return
+}
+om_trace() {
+    OM_TNAME=$1 OM_NODE_IP=$2 OM_NODE_PREFIX="$OM_TEMP/trace-$2"
+    OM_ICMP_PID='' OM_TCP_PID=''
+    trap 'for OM_PID in "$OM_ICMP_PID" "$OM_TCP_PID"; do [ -z "$OM_PID" ] || kill "$OM_PID" 2>/dev/null || :; done; for OM_PID in "$OM_ICMP_PID" "$OM_TCP_PID"; do [ -z "$OM_PID" ] || wait "$OM_PID" 2>/dev/null || :; done; exit 130' INT TERM
+    om_trace_collect ICMP "$OM_NODE_IP" "$OM_NODE_PREFIX.icmp" & OM_ICMP_PID=$!
+    om_trace_collect TCP "$OM_NODE_IP" "$OM_NODE_PREFIX.tcp" & OM_TCP_PID=$!
+    wait "$OM_ICMP_PID" || :; wait "$OM_TCP_PID" || :
+    OM_ICMP_PID='' OM_TCP_PID=''
+    om_trace_status "$OM_NODE_PREFIX.icmp" "$OM_NODE_IP"
+    OM_ITONE=$OM_TONE OM_ITEXT="$OM_STATE${OM_HINT:+ · }$OM_HINT"
+    om_trace_status "$OM_NODE_PREFIX.tcp" "$OM_NODE_IP"
+    OM_TTONE=$OM_TONE OM_TTEXT="$OM_STATE${OM_HINT:+ · }$OM_HINT"
+    if [ "${OM_WIDTH:-76}" -lt 70 ]; then
+        printf '  %s\n' "$OM_TNAME"
+        printf '%b' "$OM_ITONE"; om_wrap "ICMP  $OM_ITEXT" 4; printf '%b' "$OM_RESET"
+        printf '%b' "$OM_TTONE"; om_wrap "TCP   $OM_TTEXT" 4; printf '%b' "$OM_RESET"
+    else
+        OM_ROUTE_WIDTH=$(((OM_WIDTH-18)/2))
+        om_lines "$OM_ITEXT" "$OM_ROUTE_WIDTH" > "$OM_NODE_PREFIX.icmp-lines"
+        om_lines "$OM_TTEXT" "$OM_ROUTE_WIDTH" > "$OM_NODE_PREFIX.tcp-lines"
+        OM_FIRST_LINE=1
+        paste -d '|' "$OM_NODE_PREFIX.icmp-lines" "$OM_NODE_PREFIX.tcp-lines" | while IFS='|' read -r OM_ILINE OM_TLINE; do
+            printf '  '
+            if [ "$OM_FIRST_LINE" -eq 1 ]; then om_pad "$OM_TNAME" 12; else om_pad '' 12; fi
+            printf '%b| %b' "$OM_GRAY" "$OM_ITONE"; om_pad "$OM_ILINE" "$OM_ROUTE_WIDTH"
+            printf '%b| %b' "$OM_GRAY" "$OM_TTONE"; om_pad "$OM_TLINE" "$OM_ROUTE_WIDTH"
+            printf '%b\n' "$OM_RESET"; OM_FIRST_LINE=0
+        done
     fi
-    om_pad "$OM_METHOD" 6
-    printf '%b' "$OM_TONE"; om_pad "$OM_STATE" 10
-    printf '%b%s\n' "$OM_RESET" "${OM_HINT:-未见线路特征}"
 }
 om_trace_run() {
     OM_WATCH_PID=''
-    if command -v timeout >/dev/null 2>&1; then timeout 12 "$@" & OM_TRACE_PID=$!
+    if command -v timeout >/dev/null 2>&1; then LC_ALL=C timeout 12 "$@" & OM_TRACE_PID=$!
     else
-        "$@" & OM_TRACE_PID=$!
+        LC_ALL=C "$@" & OM_TRACE_PID=$!
         ( sleep 12 & OM_SLEEP_PID=$!; trap 'kill "$OM_SLEEP_PID" 2>/dev/null || :; exit 0' INT TERM; wait "$OM_SLEEP_PID" && kill "$OM_TRACE_PID" 2>/dev/null || : ) & OM_WATCH_PID=$!
     fi
     trap 'kill "$OM_TRACE_PID" 2>/dev/null || :; [ -z "$OM_WATCH_PID" ] || kill "$OM_WATCH_PID" 2>/dev/null || :; exit 130' INT TERM
@@ -322,106 +339,94 @@ om_trace_run() {
     trap '[ -z "${OM_PING_SESSION:-}" ] || kill "$OM_PING_SESSION" 2>/dev/null || :; exit 130' INT TERM
     return "$OM_TRACE_RC"
 }
-# Source-only guard used by the external fixture checks.
-[ "${OPENMILI_TEST_ONLY:-0}" != 1 ] || return 0 2>/dev/null || exit 0
-printf '\n%b╭' "$OM_CYAN"; om_rule "$((OM_WIDTH-2))"; printf '╮%b\n' "$OM_RESET"
-printf '%b│%b  ' "$OM_CYAN" "$OM_RESET"; om_pad 'OPENMILI / IP TOOLKIT' "$((OM_WIDTH-4))"; printf '%b│%b\n' "$OM_CYAN" "$OM_RESET"
-printf '%b╰' "$OM_CYAN"; om_rule "$((OM_WIDTH-2))"; printf '╯%b\n' "$OM_RESET"
-printf '  %s %s\n' "$(uname -s)" "$(uname -m)"
-if [ "$OM_WIDTH" -lt 50 ]; then printf '  github.com/OpenMili/\n  OpenMili-IP-Toolkit\n'
-else printf '  https://github.com/OpenMili/OpenMili-IP-Toolkit\n'; fi
-OM_SAVED_PROXY=$OM_PROXY; OM_PROXY=''
-OM_V4=$(om_exit 4); OM_V6=$(om_exit 6); OM_PROXY=$OM_SAVED_PROXY
-printf '\n'; om_wrap "直连 IPv4  ${OM_V4:-未取得}"; om_wrap "直连 IPv6  ${OM_V6:-未启用或不可达}"
-if [ "$OM_DIRECT" -eq 0 ] && ( : </dev/tty ) 2>/dev/null; then
-    printf '\n  [1] 开始检测    [2] 自定义端口\n\n  请选择 [1]: '
-    IFS= read -r OM_CHOICE </dev/tty || OM_CHOICE=1
-    case "${OM_CHOICE:-1}" in
-        1) ;;
-        2) printf '  代理端口或地址 [7890]: '; IFS= read -r OM_PROXY </dev/tty || OM_PROXY=''; OM_PROXY=${OM_PROXY:-7890} ;;
-        *) printf '\n只能输入 1 或 2。\n' >&2; exit 2 ;;
-    esac
-fi
-om_normalize_proxy || { printf '\n代理地址或端口无效。\n' >&2; exit 2; }
-if [ -n "$OM_PROXY" ]; then
-    OM_V4=$(om_exit 4); OM_V6=$(om_exit 6)
-    printf '\n'; om_wrap "代理 IPv4  ${OM_V4:-未取得}"; om_wrap "代理 IPv6  ${OM_V6:-未启用或不可达}"
-fi
-if [ -z "$OM_V4$OM_V6" ]; then printf '\n未取得有效公网出口，停止检测。\n' >&2; exit 1; fi
-om_section '出口归属'
-om_info 4 "$OM_V4"; om_info 6 "$OM_V6"
-om_section '网站访问'
-OM_DUAL=0; [ -z "$OM_V4" ] || [ -z "$OM_V6" ] || OM_DUAL=1
-if [ "$OM_DUAL" -eq 1 ] && [ "$OM_WIDTH" -ge 68 ]; then
-    printf '  '; om_pad '网站' 18; om_pad 'IPv4 · HTTP · 秒' 22; printf 'IPv6 · HTTP · 秒\n'
-elif [ "$OM_DUAL" -eq 0 ]; then
-    OM_ONLY=4; [ -n "$OM_V4" ] || OM_ONLY=6
-    printf '  IPv%s\n' "$OM_ONLY"
-    if [ "$OM_WIDTH" -ge 44 ]; then printf '  '; om_pad '网站' 18; om_pad '状态' 11; printf 'HTTP    秒\n'; fi
-else printf '  IPv4 / IPv6\n'; fi
-: > "$OM_TEMP/results"
-while IFS='|' read -r OM_NAME OM_SITE OM_PATTERN; do
-    if { [ "$OM_DUAL" -eq 1 ] && [ "$OM_WIDTH" -lt 68 ]; } || [ "$OM_WIDTH" -lt 44 ]; then
-        printf '  %s\n' "$OM_NAME"
-        if [ -n "$OM_V4" ]; then printf '    IPv4  '; om_probe 4 "$OM_SITE" "$OM_PATTERN"; printf '\n'; fi
-        if [ -n "$OM_V6" ]; then printf '    IPv6  '; om_probe 6 "$OM_SITE" "$OM_PATTERN"; printf '\n'; fi
-    else
-        printf '  '; om_pad "$OM_NAME" 18
-        if [ -n "$OM_V4" ]; then om_probe 4 "$OM_SITE" "$OM_PATTERN"; fi
-        if [ -n "$OM_V6" ]; then
-            [ "$OM_DUAL" -eq 0 ] || printf '  '
-            om_probe 6 "$OM_SITE" "$OM_PATTERN"
-        fi
-        printf '\n'
-    fi
-done <<'OM_SITES'
-ChatGPT|https://chatgpt.com/|<title>[^<]*ChatGPT
-Claude|https://claude.ai/|<title>[^<]*Claude
-Gemini|https://gemini.google.com/|<title>[^<]*Gemini
-Grok|https://grok.com/|<title>[^<]*Grok
-Perplexity|https://www.perplexity.ai/|<title>[^<]*Perplexity
-Google|https://www.google.com/search?q=openmili|<title>[^<]*Google|id="search"|id="rso"
-YouTube|https://www.youtube.com/|<title>[^<]*YouTube|ytInitialData
-Netflix|https://www.netflix.com/|<title>[^<]*Netflix
-Disney+|https://www.disneyplus.com/|<title>[^<]*Disney
-Spotify|https://open.spotify.com/|<title>[^<]*Spotify
-TikTok|https://www.tiktok.com/|<title>[^<]*TikTok|__UNIVERSAL_DATA_FOR_REHYDRATION__
-GitHub|https://github.com/|<title>[^<]*GitHub
-X|https://x.com/|<title>[^<]*( / X|Twitter|X[[:space:]]*<)
-Reddit|https://www.reddit.com/|<title>[^<]*Reddit
-Hugging Face|https://huggingface.co/|<title>[^<]*Hugging Face
-Scholar|https://scholar.google.com/|<title>[^<]*Google Scholar|gs_res_ccl
+om_center() {
+    OM_CENTER_SIZE=$(om_width "$1")
+    if [ "$OM_CENTER_SIZE" -le "$OM_WIDTH" ]; then printf '%*s%s\n' "$(((OM_WIDTH-OM_CENTER_SIZE)/2))" '' "$1"
+    else om_wrap "$1" 0; fi
+}
+om_hardware() {
+    OM_CPU=$(awk '/^processor[[:space:]]*:/ {n++}END{if(n)print n}' /proc/cpuinfo 2>/dev/null || :)
+    OM_RAM=$(awk '/^MemTotal:/ {printf "%.1f GiB",$2/1048576}' /proc/meminfo 2>/dev/null || :)
+    OM_DISK=$(LC_ALL=C df -Pk / 2>/dev/null | awk 'NR==2&&$2~/^[0-9]+$/ {printf "%.1f GiB",$2/1048576}')
+    om_wrap "$(uname -s) $(uname -m) | CPU: ${OM_CPU:-未知}${OM_CPU:+ 核} | RAM: ${OM_RAM:-未知} | 系统盘: ${OM_DISK:-未知}" 0
+    om_wrap "检测时间: $(date '+%Y-%m-%d %H:%M:%S %Z')" 0
+}
+om_catalog() {
+    cat <<'OM_SITES'
+AI|1|ChatGPT|https://chatgpt.com/|<title>[^<]*ChatGPT
+AI|2|Claude|https://claude.ai/|<title>[^<]*Claude
+AI|3|Gemini|https://gemini.google.com/|<title>[^<]*Gemini
+AI|4|Grok|https://grok.com/|<title>[^<]*Grok
+AI|5|Perplexity|https://www.perplexity.ai/|<title>[^<]*Perplexity
+Media|1|Netflix|https://www.netflix.com/|<title>[^<]*Netflix
+Media|2|Disney+|https://www.disneyplus.com/|<title>[^<]*Disney
+Media|3|YouTube|https://www.youtube.com/|<title>[^<]*YouTube|ytInitialData
+Media|4|Spotify|https://open.spotify.com/|<title>[^<]*Spotify
+Media|5|TikTok|https://www.tiktok.com/|<title>[^<]*TikTok|__UNIVERSAL_DATA_FOR_REHYDRATION__
+Community|1|GitHub|https://github.com/|<title>[^<]*GitHub
+Community|2|X|https://x.com/|<title>[^<]*( / X|Twitter|X[[:space:]]*<)
+Community|3|Reddit|https://www.reddit.com/|<title>[^<]*Reddit
+Community|4|Scholar|https://scholar.google.com/|<title>[^<]*Google Scholar|gs_res_ccl
+Community|5|Hugging Face|https://huggingface.co/|<title>[^<]*Hugging Face
+Community|6|Google|https://www.google.com/search?q=openmili|<title>[^<]*Google|id="search"|id="rso"
 OM_SITES
-om_section '三网路径 · IPv4'
-if [ "$OM_ROUTES" -eq 0 ]; then printf '  已跳过\n'
-elif [ -n "$OM_PROXY" ]; then om_wrap '代理模式跳过：请在目标 VPS 本机运行。'
-elif [ -z "$OM_V4" ]; then om_wrap '无 IPv4 出口；原版 backtrace 节点仅支持 IPv4。'
-else
-    OM_TOOL=''
-    if command -v traceroute >/dev/null 2>&1; then OM_TOOL=traceroute
-    elif command -v ping >/dev/null 2>&1; then OM_TOOL=ping
-    elif command -v tracepath >/dev/null 2>&1; then OM_TOOL=tracepath; fi
-    if [ -z "$OM_TOOL" ]; then
-        om_wrap '缺少 ICMP 工具：apt install iputils-ping / dnf install iputils / apk add iputils'
+}
+om_site_entry() {
+    OM_SITE_TEXT='' OM_SITE_TONE=''
+    OM_ENTRY=$(awk -F'|' -v g="$2" -v n="$3" '$1==g&&$2==n{print;exit}' "$OM_TEMP/sites")
+    [ -n "$OM_ENTRY" ] || return 0
+    IFS='|' read -r OM_CATEGORY OM_ORDER OM_NAME OM_SITE OM_PATTERN <<OM_ENTRY_DATA
+$OM_ENTRY
+OM_ENTRY_DATA
+    om_probe "$1" "$OM_SITE" "$OM_PATTERN"
+    om_label "$OM_KIND"
+    OM_SITE_TEXT="$(om_pad "$OM_NAME" 12) : $OM_LABEL"
+    case "$OM_CODE" in [1-5][0-9][0-9]) OM_SITE_TEXT="$OM_SITE_TEXT ($OM_CODE)";; esac
+    OM_SITE_TONE=$OM_TONE
+}
+om_site_row() {
+    om_lines "$1" "$7" > "$OM_TEMP/site-col-1"
+    om_lines "$3" "$7" > "$OM_TEMP/site-col-2"
+    om_lines "$5" "$7" > "$OM_TEMP/site-col-3"
+    paste -d '|' "$OM_TEMP/site-col-1" "$OM_TEMP/site-col-2" "$OM_TEMP/site-col-3" | while IFS='|' read -r OM_C1 OM_C2 OM_C3; do
+        printf '  %b' "$2"; om_pad "$OM_C1" "$7"
+        printf '%b  %b' "$OM_RESET" "$4"; om_pad "$OM_C2" "$7"
+        printf '%b  %b' "$OM_RESET" "$6"; om_pad "$OM_C3" "$7"
+        printf '%b\n' "$OM_RESET"
+    done
+}
+om_show_sites() {
+    OM_REPORT_FAMILY=$1
+    printf '\n  %b[IPv%s]%b\n' "$OM_CYAN" "$OM_REPORT_FAMILY" "$OM_RESET"
+    if [ "$OM_WIDTH" -ge 90 ]; then
+        OM_SITE_WIDTH=$(((OM_WIDTH-6)/3))
+        om_site_row '[人工智能 AI]' "$OM_CYAN" '[海外流媒体]' "$OM_CYAN" '[常用社区/平台]' "$OM_CYAN" "$OM_SITE_WIDTH"
+        OM_SITE_DASH=$(om_rule "$OM_SITE_WIDTH")
+        om_site_row "$OM_SITE_DASH" "$OM_GRAY" "$OM_SITE_DASH" "$OM_GRAY" "$OM_SITE_DASH" "$OM_GRAY" "$OM_SITE_WIDTH"
+        OM_SITE_ROW=1
+        while [ "$OM_SITE_ROW" -le 6 ]; do
+            om_site_entry "$OM_REPORT_FAMILY" AI "$OM_SITE_ROW"; OM_S1=$OM_SITE_TEXT OM_T1=$OM_SITE_TONE
+            om_site_entry "$OM_REPORT_FAMILY" Media "$OM_SITE_ROW"; OM_S2=$OM_SITE_TEXT OM_T2=$OM_SITE_TONE
+            om_site_entry "$OM_REPORT_FAMILY" Community "$OM_SITE_ROW"; OM_S3=$OM_SITE_TEXT OM_T3=$OM_SITE_TONE
+            om_site_row "$OM_S1" "$OM_T1" "$OM_S2" "$OM_T2" "$OM_S3" "$OM_T3" "$OM_SITE_WIDTH"
+            OM_SITE_ROW=$((OM_SITE_ROW+1))
+        done
     else
-        if [ "$OM_TOOL" = tracepath ]; then om_wrap '仅 UDP 可用；防火墙过滤 UDP 时可能无响应。建议安装 iputils-ping。'
-        else om_wrap "ICMP 逐跳 · 12 节点 · 30 TTL · $OM_TOOL"; fi
-        printf '  '; om_pad '节点' 10; om_pad '目标 IP' 17
-        if [ "${OM_WIDTH:-76}" -lt 64 ]; then printf '\n    '; fi
-        om_pad '协议' 6; om_pad '到达情况' 10; printf '线路特征\n'
-        OM_BATCH=0 OM_ROUTE_INDEX=0 OM_ROUTE_FIRST=1 OM_ROUTE_PIDS=''
-        while IFS='|' read -r OM_RNAME OM_RIP; do
-            OM_ROUTE_INDEX=$((OM_ROUTE_INDEX+1))
-            om_trace "$OM_RNAME" "$OM_RIP" > "$OM_TEMP/route-row-$OM_ROUTE_INDEX" &
-            OM_ROUTE_PIDS="$OM_ROUTE_PIDS $!"
-            OM_BATCH=$((OM_BATCH+1))
-            if [ "$OM_BATCH" -eq 3 ]; then
-                wait
-                OM_ROUTE_PIDS=''
-                while [ "$OM_ROUTE_FIRST" -le "$OM_ROUTE_INDEX" ]; do cat "$OM_TEMP/route-row-$OM_ROUTE_FIRST"; OM_ROUTE_FIRST=$((OM_ROUTE_FIRST+1)); done
-                OM_BATCH=0
-            fi
-        done <<'OM_ROUTE_NODES'
+        for OM_GROUP in AI Media Community; do
+            case "$OM_GROUP" in AI) OM_GROUP_TITLE='[人工智能 AI]';; Media) OM_GROUP_TITLE='[海外流媒体]';; *) OM_GROUP_TITLE='[常用社区/平台]';; esac
+            printf '\n  %b%s%b\n' "$OM_CYAN" "$OM_GROUP_TITLE" "$OM_RESET"
+            printf '  %b' "$OM_GRAY"; om_rule 30; printf '%b\n' "$OM_RESET"
+            OM_SITE_ROW=1
+            while [ "$OM_SITE_ROW" -le 6 ]; do
+                om_site_entry "$OM_REPORT_FAMILY" "$OM_GROUP" "$OM_SITE_ROW"
+                if [ -n "$OM_SITE_TEXT" ]; then printf '%b' "$OM_SITE_TONE"; om_wrap "$OM_SITE_TEXT"; printf '%b' "$OM_RESET"; fi
+                OM_SITE_ROW=$((OM_SITE_ROW+1))
+            done
+        done
+    fi
+}
+om_nodes() {
+    cat <<'OM_ROUTE_NODES'
 北京电信|219.141.140.10
 北京联通|202.106.195.68
 北京移动|221.179.155.161
@@ -435,21 +440,142 @@ else
 成都联通|119.6.6.6
 成都移动|211.137.96.205
 OM_ROUTE_NODES
+}
+om_latency_probe() {
+    OM_LAT_IP=$1 OM_LAT_FILE=$2 OM_LAT_PID=''
+    trap '[ -z "$OM_LAT_PID" ] || kill "$OM_LAT_PID" 2>/dev/null || :; exit 130' INT TERM
+    LC_ALL=C ping -n -c 2 -i 0.2 -W 1 -w 2 "$OM_LAT_IP" > "$OM_LAT_FILE.raw" 2>&1 & OM_LAT_PID=$!
+    wait "$OM_LAT_PID" || :; OM_LAT_PID=''
+    OM_LAT_RESULT=$(awk -v target="$OM_LAT_IP" 'tolower($0)~/bytes from/ {source="";for(i=1;i<NF;i++)if(tolower($i)=="from"){source=$(i+1);gsub(/[():]/,"",source);break}if(source!=target)next;for(i=1;i<=NF;i++)if($i~/^time[=<][0-9.]+/){s=$i;if(s~/^time</)less++;sub(/^time[=<]/,"",s);total+=s;n++;break}}END{if(n){if(less==n)printf "<%g ms",total/n;else printf "%s%.1f ms",less?"~":"",total/n;if(n==1)printf " (1/2)"}}' "$OM_LAT_FILE.raw")
+    if [ -n "$OM_LAT_RESULT" ]; then printf '%s\n' "$OM_LAT_RESULT"
+    elif grep -Eiq 'permission|not permitted|privilege|must be root|socket:' "$OM_LAT_FILE.raw"; then printf '权限受限\n'
+    elif grep -Eiq 'invalid option|unrecognized|unknown option' "$OM_LAT_FILE.raw"; then printf '工具不兼容\n'
+    elif grep -Eiq 'unreachable|no route|network is down' "$OM_LAT_FILE.raw"; then printf '不可达\n'
+    else printf '超时\n'; fi > "$OM_LAT_FILE"
+}
+om_show_latency() {
+    OM_ROUTE_PIDS='' OM_LAT_INDEX=0
+    while IFS='|' read -r OM_LAT_NAME OM_LAT_TARGET; do
+        OM_LAT_INDEX=$((OM_LAT_INDEX+1))
+        om_latency_probe "$OM_LAT_TARGET" "$OM_TEMP/latency-$OM_LAT_INDEX" & OM_ROUTE_PIDS="$OM_ROUTE_PIDS $!"
+    done < "$OM_TEMP/nodes"
+    for OM_PID in $OM_ROUTE_PIDS; do wait "$OM_PID" || :; done
+    OM_ROUTE_PIDS=''
+    if [ "$OM_WIDTH" -ge 60 ]; then
+        OM_LAT_WIDTH=$(((OM_WIDTH-10)/3))
+        printf '  %b' "$OM_GRAY"; om_pad '城市' 8; om_pad '电信' "$OM_LAT_WIDTH"; om_pad '联通' "$OM_LAT_WIDTH"; printf '移动%b\n' "$OM_RESET"
+    fi
+    OM_LAT_INDEX=1
+    for OM_CITY_NAME in 北京 上海 广州 成都; do
+        if [ "$OM_WIDTH" -ge 60 ]; then printf '  '; om_pad "$OM_CITY_NAME" 8; else printf '  %s\n' "$OM_CITY_NAME"; fi
+        for OM_CARRIER in 电信 联通 移动; do
+            OM_LAT_VALUE=$(cat "$OM_TEMP/latency-$OM_LAT_INDEX")
+            if [ "$OM_WIDTH" -ge 60 ]; then om_pad "$OM_LAT_VALUE" "$OM_LAT_WIDTH"; else om_wrap "$OM_CARRIER : $OM_LAT_VALUE" 4; fi
+            OM_LAT_INDEX=$((OM_LAT_INDEX+1))
+        done
+        [ "$OM_WIDTH" -lt 60 ] || printf '\n'
+    done
+}
+om_score() {
+    awk -F'|' -v f="$1" '$1==f{if($2=="pass")p++;else if($2~/^(captcha|js|login|partial|redirect|empty)$/)y++;else if($2=="unknown")u++;else r++}END{k=p+y+r;if(k<8)s="证据不足";else s=int(100*(p+0.5*y)/k+0.5)"/100";printf "%s|%d|%d|%d|%d|%d\n",s,k,p,y,r,u}' "$2"
+}
+# Source-only guard used by the external fixture checks.
+[ "${OPENMILI_TEST_ONLY:-0}" != 1 ] || return 0 2>/dev/null || exit 0
+printf '\n%b' "$OM_CYAN"; om_rule "$OM_WIDTH"; printf '\n'
+om_center 'OPENMILI IP TOOLKIT - IP 综合探测报告'
+om_center 'GitHub: https://github.com/OpenMili/OpenMili-IP-Toolkit'
+om_rule "$OM_WIDTH"; printf '%b\n' "$OM_RESET"
+om_hardware
+om_section '一、IP 基础网络信息'
+OM_SAVED_PROXY=$OM_PROXY; OM_PROXY=''
+OM_V4=$(om_exit 4); OM_V6=$(om_exit 6); OM_PROXY=$OM_SAVED_PROXY
+om_field '公网 IPv4' "${OM_V4:-未取得}"
+om_field '公网 IPv6' "${OM_V6:-未启用或不可达}"
+if [ "$OM_DIRECT" -eq 0 ] && ( : </dev/tty ) 2>/dev/null; then
+    printf '\n  [1] 开始检测    [2] 自定义端口\n\n  请选择 [1]: '
+    IFS= read -r OM_CHOICE </dev/tty || OM_CHOICE=1
+    case "${OM_CHOICE:-1}" in
+        1) ;;
+        2) printf '  代理端口或地址 [7890]: '; IFS= read -r OM_PROXY </dev/tty || OM_PROXY=''; OM_PROXY=${OM_PROXY:-7890} ;;
+        *) printf '\n只能输入 1 或 2。\n' >&2; exit 2 ;;
+    esac
+fi
+om_normalize_proxy || { printf '\n代理地址或端口无效。\n' >&2; exit 2; }
+if [ -n "$OM_PROXY" ]; then
+    OM_V4=$(om_exit 4); OM_V6=$(om_exit 6)
+    printf '\n'; om_field '代理 IPv4' "${OM_V4:-未取得}"; om_field '代理 IPv6' "${OM_V6:-未启用或不可达}"
+fi
+if [ -z "$OM_V4$OM_V6" ]; then printf '\n未取得有效公网出口，停止检测。\n' >&2; exit 1; fi
+om_info 4 "$OM_V4"; om_info 6 "$OM_V6"
+om_nodes > "$OM_TEMP/nodes"
+om_catalog > "$OM_TEMP/sites"
+: > "$OM_TEMP/results"
+om_section '二、国内三网节点延迟 (ICMP)'
+if [ "$OM_ROUTES" -eq 0 ]; then om_wrap '已跳过'
+elif [ -n "$OM_PROXY" ]; then om_wrap '代理模式跳过 · 请在目标 VPS 本机直连运行'
+elif [ -z "$OM_V4" ]; then om_wrap '无 IPv4 出口 · 当前节点仅支持 IPv4'
+elif ! command -v ping >/dev/null 2>&1; then om_wrap '未安装 ping · 请安装 iputils-ping'
+else om_show_latency; fi
+om_section '三、网站风控检测 (浏览器请求头)'
+[ -z "$OM_V4" ] || om_show_sites 4
+[ -z "$OM_V6" ] || om_show_sites 6
+om_section '四、三网回程 (ICMP / TCP :443)'
+if [ "$OM_ROUTES" -eq 0 ]; then om_wrap '已跳过'
+elif [ -n "$OM_PROXY" ]; then om_wrap '代理模式跳过 · 请在目标 VPS 本机直连运行'
+elif [ -z "$OM_V4" ]; then om_wrap '无 IPv4 出口 · 原版节点仅支持 IPv4'
+else
+    OM_TOOL='' OM_TCP_TOOL=''
+    if command -v traceroute >/dev/null 2>&1; then OM_TOOL=traceroute; OM_TCP_TOOL=traceroute; fi
+    if command -v ping >/dev/null 2>&1; then OM_TOOL=ping; fi
+    printf '%b' "$OM_GRAY"; om_wrap 'IPv4 · ICMP / TCP :443 · 12 节点'; printf '%b' "$OM_RESET"
+    if [ -z "$OM_TCP_TOOL" ]; then
+        om_wrap 'TCP 未安装 · apt install traceroute / dnf install traceroute / apk add traceroute'
+    fi
+    if [ -z "$OM_TOOL$OM_TCP_TOOL" ]; then
+        om_wrap 'ICMP 未安装 · 请安装 iputils-ping'
+    else
+        if [ "$OM_WIDTH" -ge 70 ]; then
+            printf '  %b' "$OM_GRAY"; om_pad '节点' 12; printf '| '; om_pad 'ICMP' "$(((OM_WIDTH-18)/2))"; printf '| TCP :443%b\n' "$OM_RESET"
+        fi
+        OM_BATCH=0 OM_ROUTE_INDEX=0 OM_ROUTE_FIRST=1 OM_ROUTE_PIDS=''
+        while IFS='|' read -r OM_RNAME OM_RIP; do
+            OM_ROUTE_INDEX=$((OM_ROUTE_INDEX+1))
+            om_trace "$OM_RNAME" "$OM_RIP" > "$OM_TEMP/route-row-$OM_ROUTE_INDEX" &
+            OM_ROUTE_PIDS="$OM_ROUTE_PIDS $!"
+            OM_BATCH=$((OM_BATCH+1))
+            if [ "$OM_BATCH" -eq 3 ]; then
+                wait
+                OM_ROUTE_PIDS=''
+                while [ "$OM_ROUTE_FIRST" -le "$OM_ROUTE_INDEX" ]; do cat "$OM_TEMP/route-row-$OM_ROUTE_FIRST"; OM_ROUTE_FIRST=$((OM_ROUTE_FIRST+1)); done
+                OM_BATCH=0
+            fi
+        done < "$OM_TEMP/nodes"
         wait
         OM_ROUTE_PIDS=''
         while [ "$OM_ROUTE_FIRST" -le "$OM_ROUTE_INDEX" ]; do cat "$OM_TEMP/route-row-$OM_ROUTE_FIRST"; OM_ROUTE_FIRST=$((OM_ROUTE_FIRST+1)); done
-        om_wrap '线路特征参考 backtrace；不等同完整线路等级。'
     fi
 fi
-om_section '本次结果'
+om_section '五、综合评估与使用建议'
 for OM_SUM_F in 4 6; do
     if [ "$OM_SUM_F" = 4 ]; then OM_BEFORE=$OM_V4; else OM_BEFORE=$OM_V6; fi
     [ -n "$OM_BEFORE" ] || continue
+    OM_SCORE_LINE=$(om_score "$OM_SUM_F" "$OM_TEMP/results")
+    IFS='|' read -r OM_SCORE OM_KNOWN OM_PASS OM_PENDING OM_FAILED OM_UNKNOWN <<OM_SCORE_DATA
+$OM_SCORE_LINE
+OM_SCORE_DATA
+    om_wrap "IPv$OM_SUM_F 访问参考分 : $OM_SCORE ($OM_KNOWN/16 明确观测)"
+    om_wrap "通过 $OM_PASS | 待核 $OM_PENDING | 失败 $OM_FAILED | 未知 $OM_UNKNOWN"
+    om_wrap "建议 : $OM_FAILED 项受限 / 网络失败；$OM_PENDING 项验证 / 登录等待核"
     OM_AFTER=$(om_exit "$OM_SUM_F")
     if [ -n "$OM_AFTER" ] && om_same_ip "$OM_SUM_F" "$OM_BEFORE" "$OM_AFTER"; then OM_STABLE='出口一致'; OM_TONE=$OM_GREEN
-    else OM_STABLE='出口变化或复核失败'; OM_TONE=$OM_YELLOW; fi
-    OM_COUNTS=$(awk -F'|' -v f="$OM_SUM_F" '$1==f{n++;if($2=="pass")p++;else if($2~/^(captcha|js|login|partial|redirect|empty)$/)y++;else if($2=="unknown")u++;else r++}END{printf "通过 %d/%d · 待核 %d · 失败 %d",p,n,y,r;if(u)printf " · 未知 %d",u}' "$OM_TEMP/results")
-    om_wrap "IPv$OM_SUM_F  $OM_COUNTS"; printf '%b' "$OM_TONE"; om_wrap "$OM_STABLE" 8; printf '%b' "$OM_RESET"
+    elif [ -n "$OM_AFTER" ]; then OM_STABLE='出口变化'; OM_TONE=$OM_YELLOW
+    else OM_STABLE='出口复核失败'; OM_TONE=$OM_YELLOW; fi
+    printf '%b' "$OM_TONE"; om_wrap "出口复核 : $OM_STABLE"; printf '%b' "$OM_RESET"
 done
-printf '  耗时 %ss\n%b' "$(( $(date +%s) - OM_START ))" "$OM_GRAY"
-om_wrap '通过仅表示页面访问；不验证账号与视频播放。'; printf '%b\n' "$OM_RESET"
+printf '\n%b' "$OM_GRAY"
+om_wrap '计分: 通过 1 / 待核 0.5 / 失败 0；未知不计。'
+om_wrap '页面访问不代表账号 / 播放解锁；线路为逐跳特征。'
+OM_ELAPSED=$(( $(om_clock) - OM_START ))
+[ "$OM_ELAPSED" -ge 0 ] || OM_ELAPSED=0
+om_wrap "总耗时: $OM_ELAPSED 秒" 0
+om_rule "$OM_WIDTH"; printf '%b\n' "$OM_RESET"
